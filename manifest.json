@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "PrimeX",
+  "version": "1.0.0",
+  "description": "Customizing my Twitter UI",
+  "permissions": ["storage"],
+  "host_permissions": ["https://twitter.com/*", "https://x.com/*"],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://twitter.com/*", "https://x.com/*"],
+      "css": ["styles.css"],
+      "js": ["stats.js", "keyboard.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
+
