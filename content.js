@@ -72,45 +72,89 @@
     const cells = document.querySelectorAll('[data-testid="cellInnerDiv"]');
     
     cells.forEach(cell => {
-      // NEVER hide cells that contain videos - they're valuable content
-      const hasVideo = cell.querySelector('video') || 
-                       cell.querySelector('[data-testid="videoPlayer"]') ||
-                       cell.querySelector('[data-testid="videoComponent"]');
-      if (hasVideo) {
-        // Make sure the cell is visible if it was previously hidden
-        cell.style.removeProperty('display');
-        return;
-      }
-      
-      // Check for placement tracking (ad indicator) - but only if no video
-      if (cell.querySelector('[data-testid="placementTracking"]')) {
+      // Keep hiding if already marked as ad
+      if (cell.dataset.betteruiAd === 'true') {
         cell.style.display = 'none';
         return;
       }
+      // Re-check cells periodically - the "Ad" label might load late
+      // Only skip if we've checked it multiple times already
+      const checkCount = parseInt(cell.dataset.betteruiCheckCount || '0', 10);
+      const MAX_CHECKS = 8; // give the ad label time to render
+      if (cell.dataset.betteruiAd === 'false' && checkCount >= MAX_CHECKS) {
+        return; // Already checked multiple times, definitely not an ad
+      }
+      cell.dataset.betteruiCheckCount = String(checkCount + 1);
       
-      // Check for "Promoted" or "Ad" text within the tweet
+      let isAd = false;
+      
+      // Get the tweet article
       const tweet = cell.querySelector('article[data-testid="tweet"]');
-      if (tweet) {
-        // Look for promoted indicator - usually appears as small text below the tweet
-        const promotedIndicator = tweet.querySelector('[data-testid="promotedIndicator"]');
-        if (promotedIndicator) {
-          cell.style.display = 'none';
-          return;
+      if (!tweet) {
+        // No tweet article = not a regular tweet, skip
+        return;
+      }
+      
+      // Method 1: Check username/header area for "Ad" / "Promoted"
+      const header = tweet.querySelector('[data-testid="User-Name"]');
+      if (header) {
+        const headerSpans = header.querySelectorAll('span');
+        for (const span of headerSpans) {
+          const text = span.textContent.trim().toLowerCase();
+          if (text === 'ad' || text === 'promoted') {
+            isAd = true;
+            break;
+          }
         }
-        
-        // Check for ad-related links
-        const adLinks = tweet.querySelectorAll('a[href*="/i/web/ads"], a[href*="advertiser"]');
-        if (adLinks.length > 0) {
-          cell.style.display = 'none';
-          return;
+      }
+      
+      // Method 2: Social context often contains "Promoted by ..."
+      if (!isAd) {
+        const socialContext = tweet.querySelector('[data-testid="socialContext"]');
+        const contextText = socialContext?.textContent?.toLowerCase() || '';
+        if (contextText.includes('promoted') || contextText === 'ad' || contextText.startsWith('ad ·')) {
+          isAd = true;
         }
+      }
+      
+      // Method 3: Fallback scan for isolated "Ad"/"Promoted" spans not in tweet body
+      if (!isAd) {
+        const allSpans = tweet.querySelectorAll('span');
+        for (const span of allSpans) {
+          const text = span.textContent.trim().toLowerCase();
+          if (text === 'ad' || text === 'promoted') {
+            const isInTweetText = span.closest('[data-testid="tweetText"]');
+            if (!isInTweetText) {
+              isAd = true;
+              break;
+            }
+          }
+        }
+      }
+      
+      // Method 4: Check for promotedIndicator testid
+      if (!isAd && tweet.querySelector('[data-testid="promotedIndicator"]')) {
+        isAd = true;
+      }
+      
+      // Mark the cell
+      if (isAd) {
+        cell.style.display = 'none';
+        cell.dataset.betteruiAd = 'true';
+        console.log('[BetterUI] Hiding ad:', tweet.querySelector('[data-testid="User-Name"]')?.textContent?.slice(0, 50));
+      } else {
+        cell.dataset.betteruiAd = 'false';
+        // Ensure cell is visible
+        cell.style.removeProperty('display');
       }
     });
   }
   
   function setupAdRemoval() {
-    // Initial removal
-    removeAds();
+    // Initial removal with slight delay to let content render
+    setTimeout(removeAds, 100);
+    setTimeout(removeAds, 500);
+    setTimeout(removeAds, 1000);
     
     // Watch for new ads being loaded
     const observer = new MutationObserver((mutations) => {
@@ -122,7 +166,10 @@
         }
       }
       if (shouldCheck) {
-        removeAds();
+        // Small delay to let content fully render
+        setTimeout(removeAds, 50);
+        // Re-check after a bit in case "Ad" label loads late
+        setTimeout(removeAds, 300);
       }
     });
     

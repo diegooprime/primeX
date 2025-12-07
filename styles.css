@@ -567,30 +567,23 @@ article[data-testid="tweet"] *:has(video) {
    HIDE ADS / PROMOTED TWEETS
    ======================================== */
 
-/* Hide promoted tweets - these have ad tracking */
-/* Be specific to not hide video elements that might be inside */
-article[data-testid="tweet"]:has([data-testid="placementTracking"]):not(:has(video)):not(:has([data-testid="videoPlayer"])) {
+/* ONLY hide cells explicitly marked as ads by JavaScript */
+/* This is the ONLY ad-hiding rule - JS does the detection */
+[data-testid="cellInnerDiv"][data-betterui-ad="true"] {
   display: none !important;
 }
 
-/* Hide promoted content markers but not the video inside */
-[data-testid="cellInnerDiv"]:has([data-testid="promotedIndicator"]):not(:has(video)):not(:has([data-testid="videoPlayer"])) {
-  display: none !important;
+/* Ensure non-ad cells with videos are ALWAYS visible */
+[data-testid="cellInnerDiv"]:not([data-betterui-ad="true"]) {
+  display: block !important;
 }
 
-/* Alternative selector for promoted tweets - they often have this structure */
-[data-testid="cellInnerDiv"]:has(article [href*="/i/web/ads"]):not(:has(video)) {
-  display: none !important;
-}
-
-/* Hide "Promoted" label tweets */
-[data-testid="cellInnerDiv"]:has([data-testid="tweet"] [href*="advertiser"]):not(:has(video)) {
-  display: none !important;
-}
-
-/* Hide just the promoted indicator label, not the entire tweet if it has video */
-span[data-testid="promotedIndicator"] {
-  display: none !important;
+[data-testid="cellInnerDiv"]:not([data-betterui-ad="true"]) video,
+[data-testid="cellInnerDiv"]:not([data-betterui-ad="true"]) [data-testid="videoPlayer"],
+[data-testid="cellInnerDiv"]:not([data-betterui-ad="true"]) [data-testid="videoComponent"] {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 /* ========================================
