@@ -152,6 +152,7 @@
       'betterui-home-page',
       'betterui-tweet-page',
       'betterui-media-page',
+      'betterui-search-page',
       'betterui-grid-active'
     );
     
@@ -168,6 +169,8 @@
       setTimeout(buildBookmarksGrid, 500);
     } else if (path === '/home') {
       document.body.classList.add('betterui-home-page');
+    } else if (path === '/search') {
+      document.body.classList.add('betterui-search-page');
     } else if (/^\/[a-zA-Z0-9_]+\/status\/\d+/.test(path)) {
       // Tweet detail page (including photo/video views)
       document.body.classList.add('betterui-tweet-page');

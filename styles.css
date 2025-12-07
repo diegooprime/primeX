@@ -1,5 +1,23 @@
 /* BetterUI - One Dark Theme for Twitter/X */
 
+/* ========================================
+   CURSOR HIDING - Shows only on movement
+   ======================================== */
+
+body.betterui-hide-cursor,
+body.betterui-hide-cursor * {
+  cursor: none !important;
+}
+
+body.betterui-hide-cursor a,
+body.betterui-hide-cursor button,
+body.betterui-hide-cursor [role="button"],
+body.betterui-hide-cursor input,
+body.betterui-hide-cursor textarea,
+body.betterui-hide-cursor [contenteditable="true"] {
+  cursor: none !important;
+}
+
 :root {
   --bg-primary: #282c34;
   --bg-secondary: #21252b;
@@ -187,10 +205,6 @@ a[href^="/"] {
    HIDE TOP BAR (For You / Following tabs)
    ======================================== */
 
-/* Hide the entire sticky header with tabs on home/timeline pages only */
-body.betterui-home-page [data-testid="primaryColumn"] > div > div:first-child {
-  display: none !important;
-}
 
 /* Hide tab navigation in primary column (Posts/Replies/Media tabs) */
 /* But preserve any tablist inside modals, video players, or layers */
@@ -212,6 +226,11 @@ video + [role="tablist"],
 
 /* Hide the "Home" title header */
 [data-testid="titleContainer"] {
+  display: none !important;
+}
+
+/* Hide entire top sticky bar universally in primary column */
+[data-testid="primaryColumn"] > div > div:first-child {
   display: none !important;
 }
 

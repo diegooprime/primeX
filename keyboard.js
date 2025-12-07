@@ -14,7 +14,9 @@ const BetterUIKeyboard = (function() {
     searchOverlay: null,
     composeOverlay: null,
     // Bookmarks grid state
-    gridFocusIndex: -1
+    gridFocusIndex: -1,
+    // Cursor hiding
+    cursorTimer: null
   };
   
   const GRID_COLUMNS = 5;
@@ -30,29 +32,28 @@ const BetterUIKeyboard = (function() {
       'k': () => isOnBookmarksGrid() ? navigateGrid(-GRID_COLUMNS) : navigateTweets(-1),
       'h': () => isOnBookmarksGrid() ? navigateGrid(-1) : goBack(),
       'l': () => isOnBookmarksGrid() ? navigateGrid(1) : likeFocusedTweet(),
+      'g': () => scrollToTop(),
+      'G': () => scrollToBottom(),
       'Enter': () => isOnBookmarksGrid() ? openFocusedBookmark() : goDeeper(),
       'Escape': () => handleEscape(),
-      'm': () => toggleMute(),
       // Tweet actions (when focused)
       'c': () => commentOnTweet(),
       'r': () => retweetFocusedTweet(),
       'b': () => bookmarkFocusedTweet(),
       's': () => shareFocusedTweet(),
+      'm': () => toggleMute(),
+      'x': () => notInterestedFocusedTweet(),
     },
     
     // Leader key chords (Space + keys)
     leader: {
       'ff': () => openSearch(),
       'f': null, // Partial match for ff
-      'p': () => goToProfile(),
       't': () => openCompose(),
-      'x': () => notInterestedFocusedTweet(),
+      'p': () => goToProfile(),
       'a': () => handleBookmarksAction(),
-      'gg': () => scrollToTop(),
-      'g': null, // Partial match for gg
-      'G': () => scrollToBottom(),
+      'h': () => goHome(),
       'r': () => refreshFeed(),
-      'H': () => goHome(),
       '?': () => showHelp(),
     }
   };
@@ -877,29 +878,30 @@ const BetterUIKeyboard = (function() {
             <div class="betterui-help-row"><kbd>j</kbd> <span>Next tweet</span></div>
             <div class="betterui-help-row"><kbd>k</kbd> <span>Previous tweet</span></div>
             <div class="betterui-help-row"><kbd>h</kbd> <span>Go back</span></div>
+            <div class="betterui-help-row"><kbd>l</kbd> <span>Like tweet</span></div>
+            <div class="betterui-help-row"><kbd>g</kbd> <span>Scroll to top</span></div>
+            <div class="betterui-help-row"><kbd>G</kbd> <span>Scroll to bottom</span></div>
             <div class="betterui-help-row"><kbd>Enter</kbd> <span>Open tweet / link</span></div>
-            <div class="betterui-help-row"><kbd>Esc</kbd> <span>Clear focus</span></div>
+            <div class="betterui-help-row"><kbd>Esc</kbd> <span>Clear focus / Close dialogs</span></div>
           </div>
           <div class="betterui-help-section">
             <div class="betterui-help-title">Tweet Actions</div>
-            <div class="betterui-help-row"><kbd>l</kbd> <span>Like</span></div>
             <div class="betterui-help-row"><kbd>c</kbd> <span>Comment / Reply</span></div>
             <div class="betterui-help-row"><kbd>r</kbd> <span>Retweet</span></div>
             <div class="betterui-help-row"><kbd>b</kbd> <span>Bookmark</span></div>
             <div class="betterui-help-row"><kbd>s</kbd> <span>Share (copy link)</span></div>
             <div class="betterui-help-row"><kbd>m</kbd> <span>Mute / unmute video</span></div>
+            <div class="betterui-help-row"><kbd>x</kbd> <span>Not interested</span></div>
           </div>
           <div class="betterui-help-section">
             <div class="betterui-help-title">Leader Commands</div>
             <div class="betterui-help-row"><kbd>Space</kbd> <kbd>f</kbd> <kbd>f</kbd> <span>Search</span></div>
             <div class="betterui-help-row"><kbd>Space</kbd> <kbd>t</kbd> <span>Compose tweet</span></div>
             <div class="betterui-help-row"><kbd>Space</kbd> <kbd>p</kbd> <span>My profile</span></div>
-            <div class="betterui-help-row"><kbd>Space</kbd> <kbd>a</kbd> <span>Bookmarks</span></div>
-            <div class="betterui-help-row"><kbd>Space</kbd> <kbd>x</kbd> <span>Not interested</span></div>
-            <div class="betterui-help-row"><kbd>Space</kbd> <kbd>g</kbd> <kbd>g</kbd> <span>Scroll to top</span></div>
-            <div class="betterui-help-row"><kbd>Space</kbd> <kbd>G</kbd> <span>Scroll to bottom</span></div>
-            <div class="betterui-help-row"><kbd>Space</kbd> <kbd>r</kbd> <span>Refresh</span></div>
-            <div class="betterui-help-row"><kbd>Space</kbd> <kbd>H</kbd> <span>Home</span></div>
+            <div class="betterui-help-row"><kbd>Space</kbd> <kbd>a</kbd> <span>Bookmarks page</span></div>
+            <div class="betterui-help-row"><kbd>Space</kbd> <kbd>h</kbd> <span>Home</span></div>
+            <div class="betterui-help-row"><kbd>Space</kbd> <kbd>r</kbd> <span>Refresh feed</span></div>
+            <div class="betterui-help-row"><kbd>Space</kbd> <kbd>?</kbd> <span>Show help</span></div>
           </div>
         </div>
       </div>
@@ -922,6 +924,35 @@ const BetterUIKeyboard = (function() {
   }
   
   // ==========================================
+  // Cursor Hiding
+  // ==========================================
+  
+  const CURSOR_HIDE_DELAY = 1500; // ms of inactivity before hiding cursor
+  
+  function initCursorHiding() {
+    // Start with cursor hidden
+    document.body.classList.add('betterui-hide-cursor');
+    
+    document.addEventListener('mousemove', showCursor);
+    document.addEventListener('mousedown', showCursor);
+  }
+  
+  function showCursor() {
+    // Show cursor
+    document.body.classList.remove('betterui-hide-cursor');
+    
+    // Clear existing timer
+    if (state.cursorTimer) {
+      clearTimeout(state.cursorTimer);
+    }
+    
+    // Set timer to hide cursor after delay
+    state.cursorTimer = setTimeout(() => {
+      document.body.classList.add('betterui-hide-cursor');
+    }, CURSOR_HIDE_DELAY);
+  }
+  
+  // ==========================================
   // Initialization
   // ==========================================
   
@@ -938,6 +969,9 @@ const BetterUIKeyboard = (function() {
     
     // Check for pending tweet to post (from compose dialog)
     setTimeout(checkPendingTweet, 500);
+    
+    // Initialize cursor hiding
+    initCursorHiding();
     
     console.log('[BetterUI] Keyboard shortcuts active. Press Space + ? for help.');
   }
