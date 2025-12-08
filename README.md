@@ -5,8 +5,7 @@ My custom Twitter/X client. Vim keybinds, One Dark theme, zero distractions.
 I'm obsessed with speed. The default Twitter UI is slow, cluttered, and forces you to use a mouse. I spend hours on this site—it needed to feel like a proper tool, not a slot machine.
 
 ## Demo
-
-[screenshot/gif]
+https://x.com/diegooprime/status/1997924643286479117?s=20
 
 ## How it works
 

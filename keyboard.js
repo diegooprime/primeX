@@ -55,6 +55,7 @@ const BetterUIKeyboard = (function() {
       'o': () => isOnBookmarksPage() ? openAllBookmarksNow() : null,
       'h': () => goHome(),
       'r': () => refreshFeed(),
+      'n': () => goToNotifications(),
       '?': () => showHelp(),
     }
   };
@@ -858,6 +859,10 @@ function handleBookmarksAction() {
     window.location.href = 'https://x.com/home';
   }
   
+  function goToNotifications() {
+    window.location.href = 'https://x.com/i/notifications';
+  }
+  
   function showHelp() {
     // Remove existing help if open
     const existing = document.getElementById('betterui-help-overlay');
@@ -904,6 +909,7 @@ function handleBookmarksAction() {
             <div class="betterui-help-row"><kbd>Space</kbd> <kbd>a</kbd> <span>Bookmarks page</span></div>
             <div class="betterui-help-row"><kbd>Space</kbd> <kbd>o</kbd> <span>Open all bookmarks in tabs</span></div>
             <div class="betterui-help-row"><kbd>Space</kbd> <kbd>h</kbd> <span>Home</span></div>
+            <div class="betterui-help-row"><kbd>Space</kbd> <kbd>n</kbd> <span>Notifications</span></div>
             <div class="betterui-help-row"><kbd>Space</kbd> <kbd>r</kbd> <span>Refresh feed</span></div>
             <div class="betterui-help-row"><kbd>Space</kbd> <kbd>?</kbd> <span>Show help</span></div>
           </div>
