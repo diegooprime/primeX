@@ -33,7 +33,7 @@ const BetterUIStats = (function() {
         cleanOldData();
       }
     } catch (e) {
-      console.log('[BetterUI] Storage not available, using memory only');
+      // Storage not available, using memory only
     }
   }
   

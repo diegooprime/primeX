@@ -585,7 +585,6 @@ const BetterUIKeyboard = (function() {
       
       if (isVisible) {
         video.muted = !video.muted;
-        console.log(`[BetterUI] Video ${video.muted ? 'muted' : 'unmuted'}`);
         return;
       }
     }
@@ -616,7 +615,6 @@ const BetterUIKeyboard = (function() {
     
     if (likeBtn) {
       likeBtn.click();
-      console.log('[BetterUI] Like toggled');
       
       if (window.BetterUIStats) {
         const tweetId = window.BetterUIStats.getTweetId(tweet);
@@ -632,7 +630,6 @@ const BetterUIKeyboard = (function() {
     const replyBtn = tweet.querySelector('[data-testid="reply"]');
     if (replyBtn) {
       replyBtn.click();
-      console.log('[BetterUI] Reply clicked');
       
       // Keep trying to focus the reply box until it appears
       let attempts = 0;
@@ -661,7 +658,6 @@ const BetterUIKeyboard = (function() {
             selection.addRange(range);
             
             clearInterval(focusInterval);
-            console.log('[BetterUI] Reply box focused');
           }
         }
         
@@ -681,7 +677,6 @@ const BetterUIKeyboard = (function() {
                        tweet.querySelector('[data-testid="unretweet"]');
     if (retweetBtn) {
       retweetBtn.click();
-      console.log('[BetterUI] Retweet clicked');
     }
   }
   
@@ -696,7 +691,6 @@ const BetterUIKeyboard = (function() {
       navigator.clipboard.writeText(tweetLink.href).then(() => {
         showPostingIndicator('Link copied!');
         hidePostingIndicator();
-        console.log('[BetterUI] Tweet link copied:', tweetLink.href);
       }).catch(() => {
         // Fallback: click share button
         const shareBtn = tweet.querySelector('[aria-label="Share post"]') ||
@@ -744,17 +738,13 @@ const BetterUIKeyboard = (function() {
   
   function bookmarkFocusedTweet() {
     const tweet = getFocusedTweet();
-    if (!tweet) {
-      console.log('[BetterUI] No tweet focused');
-      return;
-    }
+    if (!tweet) return;
     
     const bookmarkBtn = tweet.querySelector('[data-testid="bookmark"]') || 
                         tweet.querySelector('[data-testid="removeBookmark"]');
     
     if (bookmarkBtn) {
       bookmarkBtn.click();
-      console.log('[BetterUI] Bookmark clicked');
       
       if (window.BetterUIStats) {
         const tweetId = window.BetterUIStats.getTweetId(tweet);
@@ -824,13 +814,11 @@ function handleBookmarksAction() {
     });
     
     if (tweetLinks.length === 0) {
-      console.log('[BetterUI] No bookmarked tweets found');
       showPostingIndicator('No bookmarks found');
       hidePostingIndicator();
       return;
     }
     
-    console.log(`[BetterUI] Opening ${tweetLinks.length} bookmarked tweets...`);
     showPostingIndicator(`Opening ${tweetLinks.length} tabs...`);
     
     // Use Chrome extension API to open tabs
@@ -995,7 +983,6 @@ function handleBookmarksAction() {
         }
         state.focusedTweet = tweet;
         tweet.classList.add('betterui-focused');
-        console.log('[BetterUI] Auto-focused tweet on status page');
         return true;
       }
       return false;
@@ -1053,8 +1040,6 @@ function handleBookmarksAction() {
       }
     });
     urlObserver.observe(document.body, { childList: true, subtree: true });
-    
-    console.log('[BetterUI] Keyboard shortcuts active. Press Space + ? for help.');
   }
   
   return {

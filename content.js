@@ -141,7 +141,6 @@
       if (isAd) {
         cell.style.display = 'none';
         cell.dataset.betteruiAd = 'true';
-        console.log('[BetterUI] Hiding ad:', tweet.querySelector('[data-testid="User-Name"]')?.textContent?.slice(0, 50));
       } else {
         cell.dataset.betteruiAd = 'false';
         // Ensure cell is visible
@@ -181,8 +180,6 @@
       // Retry if timeline not found yet
       setTimeout(setupAdRemoval, 500);
     }
-    
-    console.log('[BetterUI] Ad removal active');
   }
   
   // ==========================================
@@ -276,7 +273,6 @@
       primaryColumn.appendChild(grid);
       document.body.classList.add('betterui-grid-active');
       bookmarksGridBuilt = true;
-      console.log(`[BetterUI] Built bookmarks grid with ${bookmarks.length} items`);
     }
   }
   
@@ -340,8 +336,6 @@
   }
   
   function onReady() {
-    console.log('[BetterUI] Initializing...');
-    
     if (window.BetterUIStats) {
       window.BetterUIStats.init();
     }
@@ -355,8 +349,6 @@
     createStatsWidget();
     updateStatsWidget();
     setInterval(updateStatsWidget, 5000);
-    
-    console.log('[BetterUI] Ready. Press Space + ? for keyboard shortcuts.');
   }
   
   init();
