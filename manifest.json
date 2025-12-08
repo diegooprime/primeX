@@ -3,12 +3,15 @@
   "name": "PrimeX",
   "version": "1.0.0",
   "description": "Customizing my Twitter UI",
-  "permissions": ["storage"],
+  "permissions": ["storage", "tabs"],
   "host_permissions": ["https://twitter.com/*", "https://x.com/*"],
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
   },
   "content_scripts": [
     {

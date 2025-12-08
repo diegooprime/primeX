@@ -52,6 +52,7 @@ const BetterUIKeyboard = (function() {
       't': () => openCompose(),
       'p': () => goToProfile(),
       'a': () => handleBookmarksAction(),
+      'o': () => isOnBookmarksPage() ? openAllBookmarksNow() : null,
       'h': () => goHome(),
       'r': () => refreshFeed(),
       '?': () => showHelp(),
@@ -292,6 +293,10 @@ const BetterUIKeyboard = (function() {
   function isOnBookmarksGrid() {
     return window.location.pathname === '/i/bookmarks' && 
            document.getElementById('betterui-bookmarks-grid');
+  }
+  
+  function isOnBookmarksPage() {
+    return window.location.pathname === '/i/bookmarks';
   }
   
   function getGridCards() {
@@ -807,7 +812,7 @@ const BetterUIKeyboard = (function() {
     }
   }
   
-  function openAllBookmarksInTabs() {
+  function openAllBookmarksNow() {
     const tweets = getTweets();
     const tweetLinks = [];
     
@@ -820,18 +825,28 @@ const BetterUIKeyboard = (function() {
     
     if (tweetLinks.length === 0) {
       console.log('[BetterUI] No bookmarked tweets found');
+      showPostingIndicator('No bookmarks found');
+      hidePostingIndicator();
       return;
     }
     
     console.log(`[BetterUI] Opening ${tweetLinks.length} bookmarked tweets...`);
+    showPostingIndicator(`Opening ${tweetLinks.length} tabs...`);
     
-    // Open each in a new tab (browser may block some due to popup blocker)
-    tweetLinks.forEach((url, index) => {
-      setTimeout(() => {
-        window.open(url, '_blank');
-      }, index * 100); // Stagger to avoid popup blocker
-    });
+    // Use Chrome extension API to open tabs
+    chrome.runtime.sendMessage(
+      { action: 'openTabs', urls: tweetLinks },
+      (response) => {
+        if (response && response.success) {
+          showPostingIndicator(`Opened ${response.opened} tabs!`);
+        } else {
+          showPostingIndicator('Failed to open tabs');
+        }
+        hidePostingIndicator();
+      }
+    );
   }
+  
   
   function scrollToTop() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -899,6 +914,7 @@ const BetterUIKeyboard = (function() {
             <div class="betterui-help-row"><kbd>Space</kbd> <kbd>t</kbd> <span>Compose tweet</span></div>
             <div class="betterui-help-row"><kbd>Space</kbd> <kbd>p</kbd> <span>My profile</span></div>
             <div class="betterui-help-row"><kbd>Space</kbd> <kbd>a</kbd> <span>Bookmarks page</span></div>
+            <div class="betterui-help-row"><kbd>Space</kbd> <kbd>o</kbd> <span>Open all bookmarks in tabs</span></div>
             <div class="betterui-help-row"><kbd>Space</kbd> <kbd>h</kbd> <span>Home</span></div>
             <div class="betterui-help-row"><kbd>Space</kbd> <kbd>r</kbd> <span>Refresh feed</span></div>
             <div class="betterui-help-row"><kbd>Space</kbd> <kbd>?</kbd> <span>Show help</span></div>
