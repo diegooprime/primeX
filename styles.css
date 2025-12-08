@@ -1081,6 +1081,148 @@ body.betterui-bookmarks-page.betterui-grid-active [data-testid="primaryColumn"] 
 }
 
 /* ========================================
+   REPLY BOX MODAL - Minimal & Clean
+   ======================================== */
+
+/* Dark backdrop */
+#layers > div:first-child > div {
+  background: rgba(0, 0, 0, 0.85) !important;
+}
+
+/* Reset ALL nested container backgrounds */
+#layers [aria-labelledby="modal-header"] div {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+/* The main modal container - apply our styling */
+#layers [aria-labelledby="modal-header"] > div:last-child > div > div {
+  background: var(--bg-secondary) !important;
+  border: 2px solid var(--accent-purple) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6) !important;
+  max-width: 520px !important;
+  overflow: hidden !important;
+}
+
+/* ===== HIDE EVERYTHING WE DON'T NEED ===== */
+
+/* Hide close button */
+#layers [aria-label="Close"] {
+  display: none !important;
+}
+
+/* Hide Drafts */
+#layers [href="/compose/post/drafts"],
+#layers span:has(> a[href*="drafts"]) {
+  display: none !important;
+}
+
+/* Hide the entire top row (Close + Drafts) */
+#layers [aria-labelledby="modal-header"] > div:last-child > div > div > div:first-child {
+  display: none !important;
+}
+
+/* Hide "Replying to @username" */
+#layers span:has(> a[role="link"][href^="/"]) {
+  display: none !important;
+}
+
+/* Hide all avatars */
+#layers [aria-labelledby="modal-header"] img[src*="profile"] {
+  display: none !important;
+}
+
+#layers [aria-labelledby="modal-header"] [style*="width: 40px"],
+#layers [aria-labelledby="modal-header"] [style*="width: 32px"] {
+  width: 0 !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Hide thread connector */
+#layers [aria-labelledby="modal-header"] [style*="border-left"] {
+  border-left: none !important;
+}
+
+/* ===== TEXTAREA STYLING ===== */
+
+#layers [data-testid="tweetTextarea_0RichTextInputContainer"] {
+  background: transparent !important;
+  border: none !important;
+  padding: 20px !important;
+  min-height: 120px !important;
+}
+
+#layers [data-testid="tweetTextarea_0"],
+#layers [aria-labelledby="modal-header"] [contenteditable="true"] {
+  color: var(--text-primary) !important;
+  font-size: 16px !important;
+  line-height: 1.5 !important;
+}
+
+#layers .public-DraftEditorPlaceholder-root {
+  color: var(--text-muted) !important;
+}
+
+/* ===== TOOLBAR - HIDE ICONS, KEEP BUTTON ===== */
+
+/* Hide all toolbar buttons except Reply */
+#layers [data-testid="toolBar"] button:not([data-testid="tweetButton"]) {
+  display: none !important;
+}
+
+/* Hide progress indicator */
+#layers [role="progressbar"],
+#layers [data-testid="toolBar"] [role="progressbar"] {
+  display: none !important;
+}
+
+/* Hide the icon container div */
+#layers [data-testid="toolBar"] > div > div:first-child {
+  display: none !important;
+}
+
+/* Style the toolbar */
+#layers [data-testid="toolBar"] {
+  background: var(--bg-secondary) !important;
+  border-top: 1px solid var(--border-color) !important;
+  padding: 12px 20px !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+}
+
+/* ===== REPLY BUTTON ===== */
+
+#layers [data-testid="tweetButton"] {
+  background: var(--accent-purple) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 20px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  padding: 8px 20px !important;
+  min-height: 36px !important;
+  opacity: 1 !important;
+}
+
+#layers [data-testid="tweetButton"] span {
+  color: white !important;
+}
+
+#layers [data-testid="tweetButton"]:hover {
+  background: #b06cc8 !important;
+}
+
+#layers [data-testid="tweetButton"][aria-disabled="true"] {
+  background: var(--bg-hover) !important;
+}
+
+#layers [data-testid="tweetButton"][aria-disabled="true"] span {
+  color: var(--text-muted) !important;
+}
+
+/* ========================================
    HELP DIALOG
    ======================================== */
 
