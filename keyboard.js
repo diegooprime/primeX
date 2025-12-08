@@ -802,15 +802,15 @@ const BetterUIKeyboard = (function() {
     }
   }
   
-  function handleBookmarksAction() {
-    // If on bookmarks page, open all in new tabs
-    if (window.location.pathname === '/i/bookmarks') {
-      openAllBookmarksInTabs();
-    } else {
-      // Navigate to bookmarks
-      window.location.href = 'https://x.com/i/bookmarks';
-    }
+function handleBookmarksAction() {
+  // If on bookmarks page, open all in new tabs
+  if (window.location.pathname === '/i/bookmarks') {
+    openAllBookmarksNow();
+  } else {
+    // Navigate to bookmarks
+    window.location.href = 'https://x.com/i/bookmarks';
   }
+}
   
   function openAllBookmarksNow() {
     const tweets = getTweets();

@@ -16,7 +16,6 @@ const BetterUIStats = (function() {
   
   let tickTimer = null;
   let saveTimer = null;
-  let lastScrollY = 0;
   let observedTweets = new Set();
   
   // ==========================================
@@ -156,21 +155,6 @@ const BetterUIStats = (function() {
     }
   }
   
-  function getEngagementRatio() {
-    const scrolled = state.scrolledTweets.length;
-    const engaged = state.engagedTweets.size;
-    
-    if (scrolled === 0) return { ratio: 0, scrolled, engaged, display: '0%' };
-    
-    const ratio = engaged / scrolled;
-    return {
-      ratio,
-      scrolled,
-      engaged,
-      display: `${(ratio * 100).toFixed(1)}%`
-    };
-  }
-  
   function getScrolledTweetsCount() {
     const now = Date.now();
     const oneDayAgo = now - (24 * 60 * 60 * 1000);
@@ -305,7 +289,6 @@ const BetterUIStats = (function() {
   return {
     init,
     getTimeStats,
-    getEngagementRatio,
     getScrolledTweetsCount,
     trackEngagement,
     getTweetId

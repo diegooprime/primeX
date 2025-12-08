@@ -195,11 +195,8 @@
     // Remove all page-specific classes
     document.body.classList.remove(
       'betterui-bookmarks-page', 
-      'betterui-profile-page', 
-      'betterui-home-page',
       'betterui-tweet-page',
       'betterui-media-page',
-      'betterui-search-page',
       'betterui-grid-active'
     );
     
@@ -214,19 +211,12 @@
     if (path === '/i/bookmarks') {
       document.body.classList.add('betterui-bookmarks-page');
       setTimeout(buildBookmarksGrid, 500);
-    } else if (path === '/home') {
-      document.body.classList.add('betterui-home-page');
-    } else if (path === '/search') {
-      document.body.classList.add('betterui-search-page');
     } else if (/^\/[a-zA-Z0-9_]+\/status\/\d+/.test(path)) {
       // Tweet detail page (including photo/video views)
       document.body.classList.add('betterui-tweet-page');
     } else if (/^\/[a-zA-Z0-9_]+\/(media|likes|photo|video)/.test(path)) {
       // Profile sub-pages (media tab, likes, etc.) or media lightbox
       document.body.classList.add('betterui-media-page');
-    } else if (/^\/[a-zA-Z0-9_]+$/.test(path) && 
-               !['home', 'explore', 'search', 'notifications', 'messages', 'settings', 'i'].includes(path.slice(1))) {
-      document.body.classList.add('betterui-profile-page');
     }
   }
   

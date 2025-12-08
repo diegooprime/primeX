@@ -58,7 +58,6 @@ nav[aria-label="Primary navigation"] {
 }
 
 /* Right sidebar - trends, who to follow */
-[data-testid="sidebarColumn"],
 aside[aria-label="Who to follow"],
 aside[aria-label="Trending"],
 [aria-label="Search and explore"],
