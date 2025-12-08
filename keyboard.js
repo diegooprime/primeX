@@ -969,12 +969,58 @@ const BetterUIKeyboard = (function() {
   }
   
   // ==========================================
+  // Auto-focus Tweet on Status Page
+  // ==========================================
+  
+  function isOnTweetPage() {
+    return /\/status\/\d+/.test(window.location.pathname);
+  }
+  
+  function autoFocusTweet() {
+    if (!isOnTweetPage()) return;
+    
+    // Wait for the tweet to load and focus it
+    const attemptFocus = () => {
+      const tweets = getTweets();
+      if (tweets.length > 0) {
+        // Focus the first tweet (the main tweet on a status page)
+        const tweet = tweets[0];
+        if (state.focusedTweet) {
+          state.focusedTweet.classList.remove('betterui-focused');
+        }
+        state.focusedTweet = tweet;
+        tweet.classList.add('betterui-focused');
+        console.log('[BetterUI] Auto-focused tweet on status page');
+        return true;
+      }
+      return false;
+    };
+    
+    // Try immediately
+    if (attemptFocus()) return;
+    
+    // Retry a few times if tweet hasn't loaded yet
+    let attempts = 0;
+    const maxAttempts = 20;
+    const interval = setInterval(() => {
+      attempts++;
+      if (attemptFocus() || attempts >= maxAttempts) {
+        clearInterval(interval);
+      }
+    }, 100);
+  }
+  
+  // ==========================================
   // Initialization
   // ==========================================
   
   function init() {
     document.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('popstate', clearFocus);
+    window.addEventListener('popstate', () => {
+      clearFocus();
+      // Re-check for auto-focus on navigation
+      setTimeout(autoFocusTweet, 300);
+    });
     
     const observer = new MutationObserver(() => {
       if (state.focusedTweet && !document.contains(state.focusedTweet)) {
@@ -988,6 +1034,20 @@ const BetterUIKeyboard = (function() {
     
     // Initialize cursor hiding
     initCursorHiding();
+    
+    // Auto-focus tweet if on status page
+    setTimeout(autoFocusTweet, 500);
+    
+    // Also listen for URL changes (Twitter is a SPA)
+    let lastUrl = window.location.href;
+    const urlObserver = new MutationObserver(() => {
+      if (window.location.href !== lastUrl) {
+        lastUrl = window.location.href;
+        clearFocus();
+        setTimeout(autoFocusTweet, 300);
+      }
+    });
+    urlObserver.observe(document.body, { childList: true, subtree: true });
     
     console.log('[BetterUI] Keyboard shortcuts active. Press Space + ? for help.');
   }
