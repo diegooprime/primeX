@@ -969,15 +969,20 @@ const BetterUIKeyboard = (function() {
   }
   
   // ==========================================
-  // Auto-focus Tweet on Status Page
+  // Auto-focus Tweet on Page Load
   // ==========================================
   
-  function isOnTweetPage() {
-    return /\/status\/\d+/.test(window.location.pathname);
+  function shouldAutoFocus() {
+    const path = window.location.pathname;
+    // Auto-focus on: tweet pages, home, timeline, profile pages
+    return /\/status\/\d+/.test(path) || 
+           path === '/home' || 
+           path === '/' ||
+           /^\/[^/]+$/.test(path); // Profile pages like /username
   }
   
   function autoFocusTweet() {
-    if (!isOnTweetPage()) return;
+    if (!shouldAutoFocus()) return;
     
     // Wait for the tweet to load and focus it
     const attemptFocus = () => {
