@@ -978,37 +978,104 @@ function handleBookmarksAction() {
   }
 }
   
+  function simulateRealClick(element) {
+    // Simulate a real user click with all necessary events
+    const rect = element.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    
+    const eventOptions = {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      clientX: centerX,
+      clientY: centerY,
+      screenX: centerX,
+      screenY: centerY,
+      button: 0,
+      buttons: 1
+    };
+    
+    element.dispatchEvent(new MouseEvent('mousedown', eventOptions));
+    element.dispatchEvent(new MouseEvent('mouseup', eventOptions));
+    element.dispatchEvent(new MouseEvent('click', eventOptions));
+  }
+
   function openAllBookmarksNow() {
-    const tweets = getTweets();
-    const tweetLinks = [];
+    // Temporarily disable the grid to show native timeline
+    const body = document.body;
+    const hadGridActive = body.classList.contains('betterui-grid-active');
     
-    tweets.forEach(tweet => {
-      const link = tweet.querySelector('a[href*="/status/"] time')?.closest('a');
-      if (link && link.href) {
-        tweetLinks.push(link.href);
-      }
-    });
-    
-    if (tweetLinks.length === 0) {
-      showPostingIndicator('No bookmarks found');
-      hidePostingIndicator();
-      return;
+    if (hadGridActive) {
+      body.classList.remove('betterui-grid-active');
     }
     
-    showPostingIndicator(`Opening ${tweetLinks.length} tabs...`);
-    
-    // Use Chrome extension API to open tabs
-    chrome.runtime.sendMessage(
-      { action: 'openTabs', urls: tweetLinks },
-      (response) => {
-        if (response && response.success) {
-          showPostingIndicator(`Opened ${response.opened} tabs!`);
-        } else {
-          showPostingIndicator('Failed to open tabs');
+    // Wait a moment for the DOM to update
+    setTimeout(() => {
+      const tweets = getTweets();
+      const tweetLinks = [];
+      const removeBookmarkBtns = [];
+      
+      tweets.forEach(tweet => {
+        const link = tweet.querySelector('a[href*="/status/"] time')?.closest('a');
+        if (link && link.href) {
+          tweetLinks.push(link.href);
+          // Collect the remove bookmark button for each tweet
+          const removeBtn = tweet.querySelector('[data-testid="removeBookmark"]');
+          if (removeBtn) {
+            removeBookmarkBtns.push(removeBtn);
+          }
         }
+      });
+      
+      if (tweetLinks.length === 0) {
+        if (hadGridActive) {
+          body.classList.add('betterui-grid-active');
+        }
+        showPostingIndicator('No bookmarks found');
         hidePostingIndicator();
+        return;
       }
-    );
+      
+      showPostingIndicator(`Opening ${tweetLinks.length} tabs...`);
+      
+      // Use Chrome extension API to open tabs
+      chrome.runtime.sendMessage(
+        { action: 'openTabs', urls: tweetLinks },
+        (response) => {
+          if (response && response.success) {
+            showPostingIndicator(`Opened ${response.opened} tabs! Unbookmarking...`);
+            
+            // Unbookmark all tweets with a delay between each
+            removeBookmarkBtns.forEach((btn, index) => {
+              setTimeout(() => {
+                // Scroll the button into view first
+                btn.scrollIntoView({ block: 'center', behavior: 'instant' });
+                setTimeout(() => {
+                  simulateRealClick(btn);
+                }, 50);
+              }, index * 300); // 300ms delay between each unbookmark
+            });
+            
+            // Show final message after all unbookmarks are done
+            const totalTime = removeBookmarkBtns.length * 300 + 500;
+            setTimeout(() => {
+              if (hadGridActive) {
+                body.classList.add('betterui-grid-active');
+              }
+              showPostingIndicator(`Opened ${response.opened} tabs & unbookmarked!`);
+              hidePostingIndicator();
+            }, totalTime);
+          } else {
+            if (hadGridActive) {
+              body.classList.add('betterui-grid-active');
+            }
+            showPostingIndicator('Failed to open tabs');
+            hidePostingIndicator();
+          }
+        }
+      );
+    }, 100);
   }
   
   
