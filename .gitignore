@@ -1,6 +1,5 @@
 # CleanShot screenshots
 **/CleanShot_*
 
-# PNG images (exclude all except icons)
+# PNG images
 *.png
-!icons/*.png

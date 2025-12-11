@@ -16,7 +16,14 @@ const BetterUIKeyboard = (function() {
     // Bookmarks grid state
     gridFocusIndex: -1,
     // Cursor hiding
-    cursorTimer: null
+    cursorTimer: null,
+    // Track navigation for back-focus prevention
+    navigatedFromStatusPage: false,
+    lastUrl: '',
+    // Track when we entered a profile page to prevent auto-follow
+    profileEnteredAt: 0,
+    // Debounce for follow/unfollow actions
+    lastFollowAction: 0
   };
   
   const GRID_COLUMNS = 5;
@@ -31,10 +38,11 @@ const BetterUIKeyboard = (function() {
       'j': () => isOnBookmarksGrid() ? navigateGrid(GRID_COLUMNS) : navigateTweets(1),
       'k': () => isOnBookmarksGrid() ? navigateGrid(-GRID_COLUMNS) : navigateTweets(-1),
       'h': () => isOnBookmarksGrid() ? navigateGrid(-1) : goBack(),
+      'H': () => isOnBookmarksGrid() ? navigateGrid(-1) : goBack(),
       'l': () => isOnBookmarksGrid() ? navigateGrid(1) : likeFocusedTweet(),
       'g': () => scrollToTop(),
       'G': () => scrollToBottom(),
-      'Enter': () => isOnBookmarksGrid() ? openFocusedBookmark() : goDeeper(),
+      'Enter': () => handleEnterKey(),
       'Escape': () => handleEscape(),
       // Tweet actions (when focused)
       'c': () => commentOnTweet(),
@@ -43,6 +51,11 @@ const BetterUIKeyboard = (function() {
       's': () => shareFocusedTweet(),
       'm': () => toggleMute(),
       'x': () => notInterestedFocusedTweet(),
+      // Profile tab navigation (1-4 only work on profile pages)
+      '1': () => navigateProfileTab(0), // Posts
+      '2': () => navigateProfileTab(1), // Replies
+      '3': () => navigateProfileTab(2), // Media
+      '4': () => navigateProfileTab(3), // Likes
     },
     
     // Leader key chords (Space + keys)
@@ -54,6 +67,7 @@ const BetterUIKeyboard = (function() {
       'a': () => handleBookmarksAction(),
       'o': () => isOnBookmarksPage() ? openAllBookmarksNow() : null,
       'h': () => goHome(),
+      'H': () => goHome(),
       'r': () => refreshFeed(),
       'n': () => goToNotifications(),
       '?': () => showHelp(),
@@ -65,6 +79,12 @@ const BetterUIKeyboard = (function() {
   // ==========================================
   
   function handleKeyDown(e) {
+    // Allow browser shortcuts through (Cmd+Shift+R, Cmd+R, Ctrl+Shift+R, etc.)
+    if (e.metaKey || e.ctrlKey) {
+      // Don't intercept any keyboard shortcuts with Cmd/Ctrl modifiers
+      return;
+    }
+    
     // Handle search overlay
     if (state.searchOverlay?.classList.contains('active')) {
       if (e.key === 'Escape') {
@@ -136,6 +156,11 @@ const BetterUIKeyboard = (function() {
     state.leaderActive = true;
     state.leaderBuffer = '';
     showLeaderIndicator();
+    
+    // Clear any existing timer first
+    if (state.leaderTimer) {
+      clearTimeout(state.leaderTimer);
+    }
     
     state.leaderTimer = setTimeout(() => {
       deactivateLeader();
@@ -298,6 +323,154 @@ const BetterUIKeyboard = (function() {
   
   function isOnBookmarksPage() {
     return window.location.pathname === '/i/bookmarks';
+  }
+  
+  function isOnProfilePage() {
+    const path = window.location.pathname;
+    // Profile pages: /username, /username/with_replies, /username/media, /username/likes
+    // But NOT /i/*, /home, /search, /compose, status pages, etc.
+    return /^\/[a-zA-Z0-9_]+($|\/with_replies|\/media|\/likes|\/highlights)/.test(path) &&
+           !path.startsWith('/i/') &&
+           !path.startsWith('/home') &&
+           !path.startsWith('/search') &&
+           !path.startsWith('/compose') &&
+           !path.startsWith('/settings') &&
+           !path.startsWith('/messages') &&
+           !/\/status\//.test(path);
+  }
+  
+  function handleEnterKey() {
+    if (isOnBookmarksGrid()) {
+      openFocusedBookmark();
+    } else if (isOnProfilePage()) {
+      // On profile pages, Enter always toggles follow/unfollow
+      // (regardless of tweet focus - user can click tweets to open them)
+      // Wait at least 1 second after entering profile to prevent accidental follows
+      const timeOnProfile = Date.now() - state.profileEnteredAt;
+      if (timeOnProfile > 1000) {
+        toggleFollow();
+      }
+    } else {
+      goDeeper();
+    }
+  }
+  
+  function toggleFollow() {
+    // Debounce - prevent multiple rapid clicks
+    const now = Date.now();
+    if (now - state.lastFollowAction < 2000) {
+      return; // Ignore if last action was less than 2 seconds ago
+    }
+    state.lastFollowAction = now;
+    
+    // Find the follow/unfollow button on the profile page
+    const primaryColumn = document.querySelector('[data-testid="primaryColumn"]');
+    if (!primaryColumn) return;
+    
+    // Method 1: Look for buttons with specific data-testid (most reliable)
+    // Twitter uses testids like "1234567-follow" or "1234567-unfollow"
+    let followBtn = primaryColumn.querySelector('[data-testid$="-follow"]');
+    let unfollowBtn = primaryColumn.querySelector('[data-testid$="-unfollow"]');
+    
+    // Skip if inside modals/articles
+    if (followBtn?.closest('[aria-modal="true"]') || followBtn?.closest('article')) followBtn = null;
+    if (unfollowBtn?.closest('[aria-modal="true"]') || unfollowBtn?.closest('article')) unfollowBtn = null;
+    
+    // Method 2: Fallback to text-based detection
+    if (!followBtn && !unfollowBtn) {
+      const allButtons = primaryColumn.querySelectorAll('[role="button"]');
+      
+      for (const btn of allButtons) {
+        // Skip if it's inside a modal/dialog
+        if (btn.closest('[aria-modal="true"]') || btn.closest('[role="dialog"]')) continue;
+        // Skip if inside an article (tweet actions)
+        if (btn.closest('article')) continue;
+        // Skip if inside layers (popups)
+        if (btn.closest('#layers')) continue;
+        
+        const text = btn.textContent.trim().toLowerCase();
+        const testId = btn.getAttribute('data-testid') || '';
+        const ariaLabel = (btn.getAttribute('aria-label') || '').toLowerCase();
+        
+        // Skip subscribe-related buttons
+        if (text.includes('subscribe') || testId.toLowerCase().includes('subscribe')) continue;
+        
+        // Check for "follow" or "following" in text or aria-label
+        if (text === 'follow' || ariaLabel.includes('follow') && !ariaLabel.includes('following')) {
+          followBtn = btn;
+        } else if (text === 'following' || ariaLabel.includes('following')) {
+          unfollowBtn = btn;
+        }
+      }
+    }
+    
+    // If we found an unfollow/following button, user is following -> unfollow
+    if (unfollowBtn) {
+      clickUnfollow(unfollowBtn);
+    } else if (followBtn) {
+      // If we found a "Follow" button, user is not following -> follow
+      clickFollow(followBtn);
+    }
+  }
+  
+  function clickFollow(btn) {
+    btn.click();
+    showPostingIndicator('Followed!');
+    hidePostingIndicator();
+  }
+  
+  function clickUnfollow(btn) {
+    btn.click();
+    
+    // Twitter shows a confirmation dialog - auto-confirm it
+    setTimeout(() => {
+      // Find the confirmation "Unfollow" button in the dialog
+      const confirmBtn = document.querySelector('[data-testid="confirmationSheetConfirm"]');
+      if (confirmBtn) {
+        confirmBtn.click();
+        showPostingIndicator('Unfollowed!');
+        hidePostingIndicator();
+        return;
+      }
+      
+      // Fallback: look for button containing "Unfollow" text in dialog
+      const dialog = document.querySelector('[role="dialog"]') || document.querySelector('[aria-modal="true"]');
+      if (dialog) {
+        const buttons = dialog.querySelectorAll('[role="button"]');
+        for (const btn of buttons) {
+          if (btn.textContent.trim().toLowerCase() === 'unfollow') {
+            btn.click();
+            showPostingIndicator('Unfollowed!');
+            hidePostingIndicator();
+            return;
+          }
+        }
+      }
+    }, 150);
+  }
+  
+  function getProfileUsername() {
+    const path = window.location.pathname;
+    const match = path.match(/^\/([a-zA-Z0-9_]+)/);
+    return match ? match[1] : null;
+  }
+  
+  function navigateProfileTab(tabIndex) {
+    if (!isOnProfilePage()) return;
+    
+    const username = getProfileUsername();
+    if (!username) return;
+    
+    const tabs = [
+      `/${username}`,           // 1 = Posts
+      `/${username}/with_replies`, // 2 = Replies
+      `/${username}/media`,     // 3 = Media
+      `/${username}/likes`      // 4 = Likes
+    ];
+    
+    if (tabIndex >= 0 && tabIndex < tabs.length) {
+      window.location.href = `https://x.com${tabs[tabIndex]}`;
+    }
   }
   
   function getGridCards() {
@@ -604,6 +777,8 @@ const BetterUIKeyboard = (function() {
   // ==========================================
   
   function goBack() {
+    // Mark that we're navigating back - to prevent auto-focus
+    state.navigatedFromStatusPage = /\/status\/\d+/.test(window.location.pathname);
     window.history.back();
   }
   
@@ -889,7 +1064,7 @@ function handleBookmarksAction() {
             <div class="betterui-help-row"><kbd>l</kbd> <span>Like tweet</span></div>
             <div class="betterui-help-row"><kbd>g</kbd> <span>Scroll to top</span></div>
             <div class="betterui-help-row"><kbd>G</kbd> <span>Scroll to bottom</span></div>
-            <div class="betterui-help-row"><kbd>Enter</kbd> <span>Open tweet / link</span></div>
+            <div class="betterui-help-row"><kbd>Enter</kbd> <span>Open tweet / Follow on profile</span></div>
             <div class="betterui-help-row"><kbd>Esc</kbd> <span>Clear focus / Close dialogs</span></div>
           </div>
           <div class="betterui-help-section">
@@ -900,6 +1075,14 @@ function handleBookmarksAction() {
             <div class="betterui-help-row"><kbd>s</kbd> <span>Share (copy link)</span></div>
             <div class="betterui-help-row"><kbd>m</kbd> <span>Mute / unmute video</span></div>
             <div class="betterui-help-row"><kbd>x</kbd> <span>Not interested</span></div>
+          </div>
+          <div class="betterui-help-section">
+            <div class="betterui-help-title">Profile Page</div>
+            <div class="betterui-help-row"><kbd>Enter</kbd> <span>Follow / Unfollow</span></div>
+            <div class="betterui-help-row"><kbd>1</kbd> <span>Posts tab</span></div>
+            <div class="betterui-help-row"><kbd>2</kbd> <span>Replies tab</span></div>
+            <div class="betterui-help-row"><kbd>3</kbd> <span>Media tab</span></div>
+            <div class="betterui-help-row"><kbd>4</kbd> <span>Likes tab</span></div>
           </div>
           <div class="betterui-help-section">
             <div class="betterui-help-title">Leader Commands</div>
@@ -976,6 +1159,12 @@ function handleBookmarksAction() {
   }
   
   function autoFocusTweet() {
+    // Skip auto-focus if navigating back from a status page
+    if (state.navigatedFromStatusPage) {
+      state.navigatedFromStatusPage = false;
+      return;
+    }
+    
     if (!shouldAutoFocus()) return;
     
     // Wait for the tweet to load and focus it
@@ -1014,7 +1203,30 @@ function handleBookmarksAction() {
   
   function init() {
     document.addEventListener('keydown', handleKeyDown);
+    
+    // Track current URL for back navigation detection
+    state.lastUrl = window.location.href;
+    // Initialize profile timestamp if starting on a profile
+    if (isOnProfilePage()) {
+      state.profileEnteredAt = Date.now();
+    }
+    
     window.addEventListener('popstate', () => {
+      // Detect if we're going back from a status page
+      const wasOnStatusPage = /\/status\/\d+/.test(state.lastUrl);
+      const isNowOnStatusPage = /\/status\/\d+/.test(window.location.pathname);
+      
+      // If we were on status page and now we're not, skip auto-focus
+      if (wasOnStatusPage && !isNowOnStatusPage) {
+        state.navigatedFromStatusPage = true;
+      }
+      
+      // Track when entering a profile page
+      if (isOnProfilePage()) {
+        state.profileEnteredAt = Date.now();
+      }
+      
+      state.lastUrl = window.location.href;
       clearFocus();
       // Re-check for auto-focus on navigation
       setTimeout(autoFocusTweet, 300);
@@ -1037,10 +1249,24 @@ function handleBookmarksAction() {
     setTimeout(autoFocusTweet, 500);
     
     // Also listen for URL changes (Twitter is a SPA)
-    let lastUrl = window.location.href;
     const urlObserver = new MutationObserver(() => {
-      if (window.location.href !== lastUrl) {
-        lastUrl = window.location.href;
+      if (window.location.href !== state.lastUrl) {
+        const wasOnStatusPage = /\/status\/\d+/.test(state.lastUrl);
+        const isNowOnStatusPage = /\/status\/\d+/.test(window.location.pathname);
+        const wasOnProfilePage = isOnProfilePage();
+        
+        // Track if navigating away from status page (likely going back)
+        if (wasOnStatusPage && !isNowOnStatusPage) {
+          state.navigatedFromStatusPage = true;
+        }
+        
+        state.lastUrl = window.location.href;
+        
+        // Track when entering a profile page (after URL update)
+        if (isOnProfilePage()) {
+          state.profileEnteredAt = Date.now();
+        }
+        
         clearFocus();
         setTimeout(autoFocusTweet, 300);
       }

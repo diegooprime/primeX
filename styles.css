@@ -65,6 +65,24 @@ aside[aria-label="Trending"],
   display: none !important;
 }
 
+/* Hide in-feed "Who to follow" suggestions */
+[data-testid="cellInnerDiv"]:has([data-testid="UserCell"]):not(:has(article[data-testid="tweet"])),
+[data-testid="cellInnerDiv"]:has(h2:is(:lang(en))[role="heading"]),
+[data-testid="cellInnerDiv"]:has(span:is(:lang(en))):not(:has(article)):not(:has([data-testid="tweetText"])) {
+  display: none !important;
+}
+
+/* Hide "Who to follow" heading and its container in timeline */
+[data-testid="primaryColumn"] section [role="heading"]:has(span),
+[data-testid="cellInnerDiv"]:has(> div > div > [role="heading"]) {
+  display: none !important;
+}
+
+/* Hide UserCell rows that appear in timeline (follow suggestions) */
+[data-testid="primaryColumn"] [data-testid="UserCell"]:not([aria-label*="Profile"]) {
+  display: none !important;
+}
+
 /* Hide the Grok floating button */
 [data-testid="grok-button"],
 [aria-label="Grok"],
@@ -87,6 +105,35 @@ div[data-testid="DMDrawer"] {
 aside[aria-label="Messages"],
 body > div[style*="position: fixed"][style*="bottom"] > a[href="/messages"],
 body > div[style*="position: fixed"][style*="bottom"] > a[href="/i/grok"] {
+  display: none !important;
+}
+
+/* Hide floating DM/Messages compose button (FAB) and chat drawer */
+[data-testid="DM_Fab"],
+[data-testid="DMFab"],
+[data-testid="chat-drawer-root"],
+[data-testid="chat-drawer-main"],
+a[aria-label="Direct message"],
+a[aria-label="New message"],
+a[aria-label="Messages"][href="/messages"] {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* Hide the entire chat drawer floating container */
+div:has(> [data-testid="chat-drawer-root"]),
+div:has(> div > [data-testid="chat-drawer-root"]) {
+  display: none !important;
+}
+
+/* Target fixed/absolute positioned message containers */
+div[style*="position: absolute"][style*="bottom"] a[href="/messages"],
+div[style*="position: fixed"] a[href="/messages"] {
+  display: none !important;
+}
+
+/* Hide message button when it's a direct child link to /messages */
+a[href="/messages"]:not(#layers a):not([data-testid="AppTabBar_DirectMessage_Link"]) {
   display: none !important;
 }
 
@@ -594,6 +641,15 @@ nav[aria-label="Footer"] {
   display: none !important;
 }
 
+/* Hide Twitter's native bottom navigation bar (mobile/narrow viewports) */
+nav[aria-label="Bottom navigation"],
+[data-testid="BottomBar"],
+div[data-testid="primaryColumn"] ~ nav,
+[role="navigation"][aria-label="Primary"],
+nav[role="navigation"]:not([aria-label="Primary navigation"]) {
+  display: none !important;
+}
+
 /* "What's happening" placeholder when empty */
 [data-testid="emptyState"] {
   color: var(--text-secondary) !important;
@@ -603,16 +659,35 @@ nav[aria-label="Footer"] {
    AUTO-EXPAND TWEETS
    ======================================== */
 
-/* Hide "Show more" button and expand all tweet text */
-[data-testid="tweet-text-show-more-link"] {
+/* Hide "Show more" button - multiple selector variants */
+[data-testid="tweet-text-show-more-link"],
+article[data-testid="tweet"] [role="button"][tabindex="0"]:has(span:only-child),
+article span[role="button"]:not([data-testid]):not([aria-label]) {
   display: none !important;
 }
 
-/* Force tweet text to show fully */
-[data-testid="tweetText"] {
+/* Target Twitter's "Show more" link text directly */
+article[data-testid="tweet"] span:not([data-testid]):not([class]) {
+  /* Check if it contains "Show more" - handled by hiding the button above */
+}
+
+/* Force tweet text to show fully - remove all clipping */
+[data-testid="tweetText"],
+[data-testid="tweetText"] > span,
+[data-testid="tweetText"] > div {
   max-height: none !important;
   -webkit-line-clamp: unset !important;
+  -webkit-box-orient: unset !important;
   overflow: visible !important;
+  display: block !important;
+  text-overflow: unset !important;
+}
+
+/* Remove gradient fade that indicates truncation */
+[data-testid="tweetText"]::after,
+[data-testid="tweetText"] > span::after {
+  display: none !important;
+  background: none !important;
 }
 
 /* ========================================
@@ -771,11 +846,28 @@ body.betterui-tweet-page [data-testid="primaryColumn"]:not([aria-label*="Photo"]
   opacity: 1 !important;
 }
 
-/* Profile media tab */
+/* Profile media tab - ensure proper grid layout */
 body.betterui-media-page [data-testid="primaryColumn"] {
   width: 100% !important;
   max-width: 100% !important;
   min-width: unset !important;
+}
+
+/* Restore media grid header visibility on media pages */
+body.betterui-media-page [data-testid="primaryColumn"] > div > div:first-child {
+  display: block !important;
+}
+
+/* Ensure media grid items display properly */
+body.betterui-media-page [data-testid="cellInnerDiv"] {
+  display: block !important;
+}
+
+/* Media grid container should use proper grid layout */
+body.betterui-media-page section[role="region"] > div > div {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 4px !important;
 }
 
 /* Ensure media tab video thumbnails are visible */
@@ -811,10 +903,20 @@ body.betterui-tweet-page [data-testid="card.wrapper"] {
   overflow: hidden !important;
 }
 
-/* Video constraints - less restrictive to not hide videos */
+/* Video constraints - remove restrictive sizing to allow natural dimensions */
 body.betterui-tweet-page article [data-testid="videoPlayer"],
 body.betterui-tweet-page article video {
-  max-height: 500px !important;
+  max-height: none !important;
+  height: auto !important;
+  width: 100% !important;
+}
+
+/* Ensure videos maintain aspect ratio */
+video {
+  max-height: 80vh !important;
+  width: 100% !important;
+  height: auto !important;
+  object-fit: contain !important;
 }
 
 /* Clean padding */
@@ -1298,5 +1400,195 @@ body.betterui-bookmarks-page.betterui-grid-active [data-testid="primaryColumn"] 
   color: var(--text-primary);
   min-width: 20px;
   text-align: center;
+}
+
+/* ========================================
+   PROFILE PAGE TABS (Replies, Media, Likes)
+   ======================================== */
+
+#betterui-profile-tabs {
+  position: fixed;
+  top: 50%;
+  right: 20px;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 9999;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.betterui-profile-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 10px 16px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.betterui-profile-tab:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.betterui-profile-tab.active {
+  background: var(--accent-blue);
+  color: white;
+  border-color: var(--accent-blue);
+}
+
+.betterui-profile-tab .tab-key {
+  display: inline-block;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  padding: 2px 5px;
+  border-radius: 3px;
+  margin-right: 6px;
+  min-width: 14px;
+  text-align: center;
+}
+
+.betterui-profile-tab.active .tab-key {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+/* ========================================
+   NOTIFICATIONS LIST VIEW
+   ======================================== */
+
+#betterui-notifications-list {
+  width: 100%;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.betterui-notif-header {
+  display: grid;
+  grid-template-columns: 180px 100px 1fr 80px;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-tertiary);
+  border-radius: 8px 8px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.betterui-notif-row {
+  display: grid;
+  grid-template-columns: 180px 100px 1fr 80px;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  align-items: center;
+  transition: background 0.15s ease;
+}
+
+.betterui-notif-row:hover {
+  background: var(--bg-tertiary);
+}
+
+.betterui-notif-row:last-child {
+  border-radius: 0 0 8px 8px;
+}
+
+.betterui-notif-row .col-account {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.betterui-notif-row .notif-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.betterui-notif-row .notif-username {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.betterui-notif-row .notif-username:hover {
+  color: var(--accent-blue);
+}
+
+.betterui-notif-row .col-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.betterui-notif-row .action-icon {
+  font-size: 14px;
+}
+
+.betterui-notif-row .action-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
+.betterui-notif-row .col-link {
+  overflow: hidden;
+}
+
+.betterui-notif-row .notif-content {
+  color: var(--text-primary);
+  font-size: 13px;
+  text-decoration: none;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+.betterui-notif-row .notif-content:hover {
+  color: var(--accent-blue);
+}
+
+.betterui-notif-row .notif-content-empty {
+  color: var(--text-muted);
+}
+
+.betterui-notif-row .col-date {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+/* Hide native timeline on notifications when list is active */
+body.betterui-notifications-page.betterui-notifications-active [data-testid="primaryColumn"] section {
+  display: none !important;
+}
+
+/* Show header on profile pages */
+body.betterui-profile-page [data-testid="primaryColumn"] > div > div:first-child {
+  display: block !important;
 }
 
