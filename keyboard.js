@@ -10,16 +10,24 @@ const BetterUIKeyboard = (function() {
     leaderBuffer: '',
     leaderTimer: null,
     focusedTweet: null,
+    focusedMedia: null,
     leaderIndicator: null,
     searchOverlay: null,
     composeOverlay: null,
     // Bookmarks grid state
     gridFocusIndex: -1,
+    // Profile media grid state
+    mediaFocusIndex: -1,
     // Cursor hiding
     cursorTimer: null,
     // Track navigation for back-focus prevention
     navigatedFromStatusPage: false,
     lastUrl: '',
+    // Track the tweet URL we came from (for restoring focus after going back)
+    lastFocusedTweetUrl: null,
+    // Track previous page for proper back navigation (avoid Twitter SPA refresh)
+    previousPageUrl: null,
+    previousScrollY: 0,
     // Track when we entered a profile page to prevent auto-follow
     profileEnteredAt: 0,
     // Debounce for follow/unfollow actions
@@ -35,14 +43,15 @@ const BetterUIKeyboard = (function() {
   const bindings = {
     // Direct bindings (no leader) - vim style hjkl
     direct: {
-      'j': () => isOnBookmarksGrid() ? navigateGrid(GRID_COLUMNS) : navigateTweets(1),
-      'k': () => isOnBookmarksGrid() ? navigateGrid(-GRID_COLUMNS) : navigateTweets(-1),
+      'j': () => isOnBookmarksGrid() ? navigateGrid(GRID_COLUMNS) : (isOnProfileMediaGrid() ? navigateMediaGrid(1) : navigateTweets(1)),
+      'k': () => isOnBookmarksGrid() ? navigateGrid(-GRID_COLUMNS) : (isOnProfileMediaGrid() ? navigateMediaGrid(-1) : navigateTweets(-1)),
       'h': () => isOnBookmarksGrid() ? navigateGrid(-1) : goBack(),
       'H': () => isOnBookmarksGrid() ? navigateGrid(-1) : goBack(),
       'l': () => isOnBookmarksGrid() ? navigateGrid(1) : likeFocusedTweet(),
       'g': () => scrollToTop(),
       'G': () => scrollToBottom(),
       'Enter': () => handleEnterKey(),
+      'Tab': () => goToAuthorProfile(),
       'Escape': () => handleEscape(),
       // Tweet actions (when focused)
       'c': () => commentOnTweet(),
@@ -50,6 +59,7 @@ const BetterUIKeyboard = (function() {
       'b': () => bookmarkFocusedTweet(),
       's': () => shareFocusedTweet(),
       'm': () => toggleMute(),
+      'i': () => openTweetMedia(),
       'x': () => notInterestedFocusedTweet(),
       // Profile tab navigation (1-4 only work on profile pages)
       '1': () => navigateProfileTab(0), // Posts
@@ -66,8 +76,6 @@ const BetterUIKeyboard = (function() {
       'p': () => goToProfile(),
       'a': () => handleBookmarksAction(),
       'o': () => isOnBookmarksPage() ? openAllBookmarksNow() : null,
-      'h': () => goHome(),
-      'H': () => goHome(),
       'r': () => refreshFeed(),
       'n': () => goToNotifications(),
       '?': () => showHelp(),
@@ -102,7 +110,26 @@ const BetterUIKeyboard = (function() {
       }
       return;
     }
-    
+
+    // Handle media lightbox (image viewer)
+    if (isMediaLightboxOpen()) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
+      if (e.key === 'h' || e.key === 'H') {
+        // Previous image
+        navigateLightbox('prev');
+      } else if (e.key === 'l' || e.key === 'L') {
+        // Next image
+        navigateLightbox('next');
+      } else if (e.key === 'Escape') {
+        // Close lightbox
+        closeLightbox();
+      }
+      return;
+    }
+
     // Ignore if typing in input
     if (isTyping(e.target)) {
       if (e.key === 'Escape') {
@@ -115,6 +142,8 @@ const BetterUIKeyboard = (function() {
     // Leader key pressed
     if (e.key === LEADER_KEY && !state.leaderActive) {
       e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
       activateLeader();
       return;
     }
@@ -122,6 +151,8 @@ const BetterUIKeyboard = (function() {
     // If leader is active, buffer the key
     if (state.leaderActive) {
       e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
       state.leaderBuffer += e.key;
       updateLeaderIndicator();
       
@@ -144,10 +175,21 @@ const BetterUIKeyboard = (function() {
       return;
     }
     
+    // Special case: Shift+Enter opens tweet in new tab (preserves timeline)
+    if (e.key === 'Enter' && e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      openTweetInNewTab();
+      return;
+    }
+
     // Direct bindings
     const directAction = bindings.direct[e.key];
     if (directAction) {
       e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
       directAction();
     }
   }
@@ -201,6 +243,77 @@ const BetterUIKeyboard = (function() {
       clearFocus();
     }
   }
+
+  // ==========================================
+  // Media Lightbox Handling
+  // ==========================================
+
+  function isMediaLightboxOpen() {
+    // Twitter's media lightbox is in #layers and contains specific elements
+    const layers = document.getElementById('layers');
+    if (!layers) return false;
+
+    // Check for image lightbox indicators
+    const hasLightbox = layers.querySelector('[aria-label="Image"]') ||
+                        layers.querySelector('[aria-label="Enlarge image"]') ||
+                        layers.querySelector('[data-testid="swipe-to-dismiss"]') ||
+                        layers.querySelector('img[src*="pbs.twimg.com/media"]');
+
+    return !!hasLightbox;
+  }
+
+  function navigateLightbox(direction) {
+    const layers = document.getElementById('layers');
+    if (!layers) return;
+
+    // Find navigation buttons by aria-label
+    const prevBtn = layers.querySelector('[aria-label="Previous slide"]') ||
+                    layers.querySelector('[aria-label="Previous"]') ||
+                    layers.querySelector('[data-testid="prevButton"]');
+    const nextBtn = layers.querySelector('[aria-label="Next slide"]') ||
+                    layers.querySelector('[aria-label="Next"]') ||
+                    layers.querySelector('[data-testid="nextButton"]');
+
+    if (direction === 'prev' && prevBtn) {
+      prevBtn.click();
+    } else if (direction === 'next' && nextBtn) {
+      nextBtn.click();
+    }
+  }
+
+  function closeLightbox() {
+    // Try multiple methods to close the lightbox
+    const layers = document.getElementById('layers');
+    if (!layers) return;
+
+    // Method 1: Click the close button
+    const closeBtn = layers.querySelector('[aria-label="Close"]') ||
+                     layers.querySelector('[data-testid="close"]') ||
+                     layers.querySelector('[aria-label="Close photo"]');
+    if (closeBtn) {
+      closeBtn.click();
+      return;
+    }
+
+    // Method 2: Click the backdrop/overlay area
+    const backdrop = layers.querySelector('[data-testid="swipe-to-dismiss"]') ||
+                     layers.querySelector('[role="presentation"]');
+    if (backdrop) {
+      backdrop.click();
+      return;
+    }
+
+    // Method 3: Simulate Escape key to Twitter
+    const escEvent = new KeyboardEvent('keydown', {
+      key: 'Escape',
+      code: 'Escape',
+      keyCode: 27,
+      which: 27,
+      bubbles: true,
+      cancelable: true
+    });
+    document.body.dispatchEvent(escEvent);
+  }
   
   // ==========================================
   // Leader Indicator UI
@@ -250,6 +363,15 @@ const BetterUIKeyboard = (function() {
       currentIndex = tweets.indexOf(state.focusedTweet);
     }
     
+    // If we have a focused tweet, check if it's long and needs internal scrolling
+    if (state.focusedTweet && currentIndex !== -1) {
+      const scrollResult = scrollWithinTweet(state.focusedTweet, direction);
+      if (scrollResult) {
+        // Successfully scrolled within the tweet, don't navigate to next/prev
+        return;
+      }
+    }
+    
     if (state.focusedTweet) {
       state.focusedTweet.classList.remove('betterui-focused');
     }
@@ -278,6 +400,47 @@ const BetterUIKeyboard = (function() {
     }
   }
   
+  // Scroll within a long tweet - returns true if scrolled, false if at edge
+  function scrollWithinTweet(tweet, direction) {
+    const rect = tweet.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const scrollStep = Math.floor(viewportHeight * 0.6); // Scroll by 60% of viewport
+    const edgeThreshold = 30; // How close to edge before moving to next tweet
+    
+    // Only apply internal scrolling if tweet is taller than viewport
+    if (rect.height <= viewportHeight - 40) {
+      return false;
+    }
+    
+    if (direction > 0) {
+      // Scrolling down (j key)
+      // Check if the bottom of the tweet is below the viewport
+      if (rect.bottom > viewportHeight + edgeThreshold) {
+        // Still more content below - scroll down within the tweet
+        window.scrollBy({
+          top: scrollStep,
+          behavior: 'smooth'
+        });
+        return true;
+      }
+      // Tweet bottom is visible, navigate to next tweet
+      return false;
+    } else {
+      // Scrolling up (k key)
+      // Check if the top of the tweet is above the viewport
+      if (rect.top < -edgeThreshold) {
+        // Still more content above - scroll up within the tweet
+        window.scrollBy({
+          top: -scrollStep,
+          behavior: 'smooth'
+        });
+        return true;
+      }
+      // Tweet top is visible, navigate to previous tweet
+      return false;
+    }
+  }
+  
   function findFirstVisibleTweetIndex(tweets) {
     const viewportTop = 50;
     
@@ -295,6 +458,7 @@ const BetterUIKeyboard = (function() {
       state.focusedTweet.classList.remove('betterui-focused');
       state.focusedTweet = null;
     }
+    clearMediaFocus();
     // Also clear grid focus
     clearGridFocus();
   }
@@ -310,6 +474,57 @@ const BetterUIKeyboard = (function() {
       return state.focusedTweet;
     }
     return null;
+  }
+  
+  function findTweetByUrl(url) {
+    if (!url) return null;
+    
+    // Extract status ID from URL (handles variations like /photo/1, /video/1, etc.)
+    const statusMatch = url.match(/\/status\/(\d+)/);
+    if (!statusMatch) return null;
+    const statusId = statusMatch[1];
+    
+    const tweets = getTweets();
+    for (const tweet of tweets) {
+      const tweetLink = tweet.querySelector('a[href*="/status/"] time')?.closest('a');
+      if (tweetLink?.href && tweetLink.href.includes(`/status/${statusId}`)) {
+        return tweet;
+      }
+    }
+    return null;
+  }
+  
+  function focusTweet(tweet) {
+    if (!tweet) return false;
+    
+    if (state.focusedTweet) {
+      state.focusedTweet.classList.remove('betterui-focused');
+    }
+    
+    state.focusedTweet = tweet;
+    tweet.classList.add('betterui-focused');
+    
+    // Scroll to the tweet
+    const rect = tweet.getBoundingClientRect();
+    const targetY = window.scrollY + rect.top - 20;
+    
+    window.scrollTo({
+      top: targetY,
+      behavior: 'smooth'
+    });
+    
+    return true;
+  }
+  
+  function restoreFocusToLastTweet() {
+    if (!state.lastFocusedTweetUrl) return false;
+    
+    const tweet = findTweetByUrl(state.lastFocusedTweetUrl);
+    if (tweet) {
+      focusTweet(tweet);
+      return true;
+    }
+    return false;
   }
   
   // ==========================================
@@ -338,21 +553,139 @@ const BetterUIKeyboard = (function() {
            !path.startsWith('/messages') &&
            !/\/status\//.test(path);
   }
+
+  // ==========================================
+  // Profile Media Grid Navigation (/username/media)
+  // ==========================================
+
+  function isOnProfileMediaGrid() {
+    const path = window.location.pathname;
+    // Match /username/media but not /status/ pages
+    if (!/^\/[a-zA-Z0-9_]+\/media(\/|$)/.test(path)) return false;
+    if (/\/status\//.test(path)) return false;
+    return true;
+  }
+
+  function getProfileMediaItems() {
+    const primaryColumn = document.querySelector('[data-testid="primaryColumn"]');
+    if (!primaryColumn) return [];
+
+    // Find all tweetPhoto and videoPlayer elements - these are the clickable media items
+    const photos = Array.from(primaryColumn.querySelectorAll('[data-testid="tweetPhoto"]'));
+    const videos = Array.from(primaryColumn.querySelectorAll('[data-testid="videoPlayer"]'));
+    const allMedia = [...photos, ...videos];
+    
+    // Filter to visible items not in lightbox
+    return allMedia.filter(el => {
+      if (el.closest('#layers')) return false;
+      const rect = el.getBoundingClientRect();
+      return rect.width > 20 && rect.height > 20;
+    });
+  }
+
+  function findFirstVisibleMediaIndex(items) {
+    const viewportTop = 50;
+    for (let i = 0; i < items.length; i++) {
+      const rect = items[i].getBoundingClientRect();
+      if (rect.bottom > viewportTop && rect.top < window.innerHeight) {
+        return i;
+      }
+    }
+    return 0;
+  }
+
+  function clearMediaFocus() {
+    state.mediaFocusIndex = -1;
+    if (state.focusedMedia && document.contains(state.focusedMedia)) {
+      state.focusedMedia.classList.remove('betterui-media-focused');
+    }
+    state.focusedMedia = null;
+
+    // Clean up any stale focus classes
+    document.querySelectorAll('.betterui-media-focused').forEach(el => {
+      el.classList.remove('betterui-media-focused');
+    });
+  }
+
+  function focusMediaItem(el, index) {
+    if (!el) return false;
+    clearFocus(); // clears tweet/grid/media focus
+
+    state.focusedMedia = el;
+    state.mediaFocusIndex = index;
+    el.classList.add('betterui-media-focused');
+
+    el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    return true;
+  }
+
+  function navigateMediaGrid(direction) {
+    const items = getProfileMediaItems();
+    if (items.length === 0) return;
+
+    let currentIndex = -1;
+
+    if (state.focusedMedia && document.contains(state.focusedMedia)) {
+      const idx = items.indexOf(state.focusedMedia);
+      if (idx !== -1) currentIndex = idx;
+    }
+
+    if (currentIndex === -1) {
+      currentIndex = findFirstVisibleMediaIndex(items);
+    }
+
+    let newIndex = currentIndex + direction;
+    newIndex = Math.max(0, Math.min(newIndex, items.length - 1));
+    focusMediaItem(items[newIndex], newIndex);
+  }
+
+  function openFocusedMediaItem() {
+    if (!state.focusedMedia || !document.contains(state.focusedMedia)) return false;
+    
+    // Find clickable element - the tweetPhoto/videoPlayer or a link inside it
+    const clickTarget = state.focusedMedia.querySelector('a') || 
+                        state.focusedMedia.querySelector('img') ||
+                        state.focusedMedia;
+    clickTarget.click();
+    return true;
+  }
   
   function handleEnterKey() {
     if (isOnBookmarksGrid()) {
       openFocusedBookmark();
-    } else if (isOnProfilePage()) {
-      // On profile pages, Enter always toggles follow/unfollow
-      // (regardless of tweet focus - user can click tweets to open them)
-      // Wait at least 1 second after entering profile to prevent accidental follows
+      return;
+    }
+
+    // Profile media grid: Enter opens the focused thumbnail (never follow/unfollow)
+    if (isOnProfileMediaGrid()) {
+      if (openFocusedMediaItem()) return;
+
+      const items = getProfileMediaItems();
+      if (items.length > 0) {
+        const idx = findFirstVisibleMediaIndex(items);
+        focusMediaItem(items[idx], idx);
+      }
+      return;
+    }
+    
+    // If there's a focused tweet, always go deeper (nested content first)
+    const focusedTweet = getFocusedTweet();
+    if (focusedTweet) {
+      goDeeper();
+      return;
+    }
+    
+    // On profile pages with no focused tweet, Enter toggles follow/unfollow
+    if (isOnProfilePage()) {
       const timeOnProfile = Date.now() - state.profileEnteredAt;
       if (timeOnProfile > 1000) {
         toggleFollow();
       }
-    } else {
-      goDeeper();
+      return;
     }
+    
+    // Fallback: try to go deeper anyway
+    goDeeper();
   }
   
   function toggleFollow() {
@@ -745,9 +1078,68 @@ const BetterUIKeyboard = (function() {
   }
   
   // ==========================================
+  // Scroll Position Restoration (for back navigation)
+  // ==========================================
+
+  function checkPendingScrollRestore() {
+    const savedTweetUrl = sessionStorage.getItem('betterui_restore_tweet');
+    const savedScrollY = sessionStorage.getItem('betterui_restore_scroll');
+
+    if (!savedTweetUrl) return;
+
+    // Clear immediately so we don't keep trying on subsequent navigations
+    sessionStorage.removeItem('betterui_restore_scroll');
+    sessionStorage.removeItem('betterui_restore_tweet');
+
+    const targetScrollY = savedScrollY ? parseInt(savedScrollY, 10) : 0;
+
+    // Wait for tweets to load, then try to find and focus the tweet
+    let attempts = 0;
+    const maxAttempts = 50; // Try for up to 5 seconds (Twitter can be slow)
+    let foundTweet = false;
+
+    const tryRestore = () => {
+      attempts++;
+
+      // Try to find the tweet by its URL
+      const tweet = findTweetByUrl(savedTweetUrl);
+      if (tweet) {
+        foundTweet = true;
+        focusTweet(tweet);
+        return; // Success!
+      }
+
+      // If we have a saved scroll position and haven't found the tweet yet,
+      // try scrolling to that position (might help load more tweets)
+      if (targetScrollY > 0 && attempts < 10) {
+        window.scrollTo(0, targetScrollY);
+      }
+
+      // Keep trying as Twitter might still be loading tweets
+      if (attempts < maxAttempts) {
+        setTimeout(tryRestore, 100);
+      } else if (!foundTweet) {
+        // Give up - tweet not found in refreshed timeline
+        // Just focus the first visible tweet as fallback
+        const tweets = getTweets();
+        if (tweets.length > 0) {
+          const firstVisibleIndex = findFirstVisibleTweetIndex(tweets);
+          if (tweets[firstVisibleIndex]) {
+            state.focusedTweet = tweets[firstVisibleIndex];
+            tweets[firstVisibleIndex].classList.add('betterui-focused');
+          }
+        }
+      }
+    };
+
+    // Start trying after a short delay for initial page render
+    setTimeout(tryRestore, 150);
+  }
+
+  // ==========================================
   // Video Mute/Unmute
   // ==========================================
-  
+
   function toggleMute() {
     // Find any playing video on the page
     const videos = document.querySelectorAll('video');
@@ -779,6 +1171,16 @@ const BetterUIKeyboard = (function() {
   function goBack() {
     // Mark that we're navigating back - to prevent auto-focus
     state.navigatedFromStatusPage = /\/status\/\d+/.test(window.location.pathname);
+
+    // Save the tweet URL we want to return to (for finding it after going back)
+    if (state.navigatedFromStatusPage && state.lastFocusedTweetUrl) {
+      sessionStorage.setItem('betterui_restore_tweet', state.lastFocusedTweetUrl);
+      if (state.previousScrollY) {
+        sessionStorage.setItem('betterui_restore_scroll', state.previousScrollY.toString());
+      }
+    }
+
+    // Use browser history back - better chance of Twitter using cached content
     window.history.back();
   }
   
@@ -845,14 +1247,61 @@ const BetterUIKeyboard = (function() {
     }
   }
   
+  function openTweetMedia() {
+    const tweet = getFocusedTweet();
+    if (!tweet) return;
+
+    // Find images or videos in the tweet
+    const media = tweet.querySelector('[data-testid="tweetPhoto"]') ||
+                  tweet.querySelector('[data-testid="videoPlayer"]') ||
+                  tweet.querySelector('img[src*="pbs.twimg.com/media"]');
+
+    if (media) {
+      // Click to open lightbox
+      media.click();
+    } else {
+      showPostingIndicator('No media');
+      hidePostingIndicator();
+    }
+  }
+
   function retweetFocusedTweet() {
     const tweet = getFocusedTweet();
     if (!tweet) return;
-    
-    const retweetBtn = tweet.querySelector('[data-testid="retweet"]') ||
-                       tweet.querySelector('[data-testid="unretweet"]');
-    if (retweetBtn) {
+
+    const retweetBtn = tweet.querySelector('[data-testid="retweet"]');
+    const unretweetBtn = tweet.querySelector('[data-testid="unretweet"]');
+
+    if (unretweetBtn) {
+      // Already retweeted - undo retweet
+      unretweetBtn.click();
+      setTimeout(() => {
+        // Find and click "Undo repost" in the menu
+        const menuItems = document.querySelectorAll('[role="menuitem"]');
+        for (const item of menuItems) {
+          if (item.textContent.toLowerCase().includes('undo')) {
+            item.click();
+            showPostingIndicator('Unreposted!');
+            hidePostingIndicator();
+            return;
+          }
+        }
+      }, 150);
+    } else if (retweetBtn) {
+      // Not retweeted yet - repost
       retweetBtn.click();
+      setTimeout(() => {
+        // Find and click "Repost" in the menu
+        const menuItems = document.querySelectorAll('[role="menuitem"]');
+        for (const item of menuItems) {
+          if (item.textContent.toLowerCase() === 'repost') {
+            item.click();
+            showPostingIndicator('Reposted!');
+            hidePostingIndicator();
+            return;
+          }
+        }
+      }, 150);
     }
   }
   
@@ -880,28 +1329,147 @@ const BetterUIKeyboard = (function() {
     const tweet = getFocusedTweet();
     if (!tweet) return;
     
-    // Priority 1: Quoted tweet
-    const quotedTweet = tweet.querySelector('[data-testid="quoteTweet"] a[href*="/status/"]');
-    if (quotedTweet) {
-      quotedTweet.click();
+    // Helper to extract status ID from any URL or string
+    const getStatusId = (str) => str?.match(/\/status\/(\d+)/)?.[1];
+    
+    const toAbsXUrl = (href) => {
+      if (!href) return null;
+      if (href.startsWith('http://') || href.startsWith('https://')) return href;
+      if (href.startsWith('/')) return `https://x.com${href}`;
+      return href;
+    };
+    
+    // Find the main status link (the timestamp link)
+    const mainTimeLink = tweet.querySelector('a[href*="/status/"] time')?.closest('a');
+    const mainStatusId = getStatusId(mainTimeLink?.getAttribute('href') || mainTimeLink?.href || '');
+    const currentPageStatusId = getStatusId(window.location.pathname);
+    
+    const navigateToStatusLink = (linkEl) => {
+      if (!linkEl) return false;
+      
+      const href = linkEl.getAttribute?.('href') || linkEl.href;
+      const id = getStatusId(href || '');
+      if (!id) return false;
+      
+      // Never "navigate to self"
+      if (id === mainStatusId || id === currentPageStatusId) return false;
+      
+      // Guardrails: only real status links, never intent links
+      const hrefStr = String(href || '');
+      if (!hrefStr.includes('/status/') || hrefStr.includes('/intent/')) return false;
+      
+      const url = toAbsXUrl(hrefStr);
+      if (!url) return false;
+      
+      window.location.href = url;
+      return true;
+    };
+    
+    // ========================================
+    // STEP 1: If not on this tweet's detail page yet, go there first
+    // ========================================
+    if (mainStatusId && mainStatusId !== currentPageStatusId) {
+      const mainHref = mainTimeLink.getAttribute('href') || mainTimeLink.href;
+      if (mainHref) {
+        // Save current page state before navigating (for proper back navigation)
+        state.previousPageUrl = window.location.href;
+        state.previousScrollY = window.scrollY;
+
+        state.lastFocusedTweetUrl = toAbsXUrl(mainHref);
+        if (state.lastFocusedTweetUrl) {
+          window.location.href = state.lastFocusedTweetUrl;
+          return;
+        }
+      }
+    }
+
+    // ========================================
+    // STEP 2: Already viewing this tweet's detail page - do nothing
+    // ========================================
+    // If we're on the detail page of the focused tweet, don't try to "go deeper"
+    // into quoted tweets. User is already where they want to be.
+    if (mainStatusId && mainStatusId === currentPageStatusId) {
+      // Already viewing this tweet - no action needed
       return;
     }
-    
-    // Priority 2: External link card
+
+    // ========================================
+    // STEP 3: We're on a different tweet's page - look for nested content
+    // ========================================
+    // This handles the case where you're viewing a reply thread and focus on a
+    // tweet that has a quoted tweet inside it.
+
+    // 1. Prefer the quoted tweet permalink (the <a> wrapping a <time>) inside quote container
+    const quotedContainer = tweet.querySelector('[data-testid="quoteTweet"], [data-testid="quote"]');
+    const quotedTimeLink = quotedContainer?.querySelector('a[href*="/status/"] time')?.closest('a');
+    if (navigateToStatusLink(quotedTimeLink)) return;
+
+    // 2. Next: look for any additional tweet permalinks (time links) inside this tweet
+    // This catches embedded quoted tweets even if the container testid changes.
+    const embeddedTimeLinks = Array.from(tweet.querySelectorAll('a[href*="/status/"] time'))
+      .map((t) => t.closest('a'))
+      .filter(Boolean);
+
+    for (const link of embeddedTimeLinks) {
+      if (navigateToStatusLink(link)) return;
+    }
+
+    // 3. Fallback: Search all links in the tweet for ANY other status ID
+    const allLinks = tweet.querySelectorAll('a[href*="/status/"]');
+    for (const link of allLinks) {
+      if (navigateToStatusLink(link)) return;
+    }
+
+    // 4. Check for external link cards
     const cardLink = tweet.querySelector('[data-testid="card.wrapper"] a[href]');
-    if (cardLink && !cardLink.href.includes('x.com') && !cardLink.href.includes('twitter.com')) {
-      cardLink.click();
-      return;
+    if (cardLink) {
+      const href = cardLink.getAttribute('href');
+      if (href && !href.includes('x.com') && !href.includes('twitter.com')) {
+        window.location.href = href;
+        return;
+      }
     }
-    
-    // Priority 3: Tweet detail
+
+    // No nested content and not on this tweet's page yet - navigate to it
+    if (mainStatusId) {
+      const mainHref = mainTimeLink.getAttribute('href') || mainTimeLink.href;
+      if (mainHref) {
+        state.previousPageUrl = window.location.href;
+        state.previousScrollY = window.scrollY;
+        state.lastFocusedTweetUrl = toAbsXUrl(mainHref);
+        if (state.lastFocusedTweetUrl) {
+          window.location.href = state.lastFocusedTweetUrl;
+          return;
+        }
+      }
+    }
+  }
+
+  function openTweetInNewTab() {
+    const tweet = getFocusedTweet();
+    if (!tweet) return;
+
+    // Find the tweet's URL
     const tweetLink = tweet.querySelector('a[href*="/status/"] time')?.closest('a');
-    if (tweetLink) {
-      tweetLink.click();
-      return;
+    if (tweetLink?.href) {
+      // Open in new tab - this preserves the current tab's timeline
+      window.open(tweetLink.href, '_blank');
+      showPostingIndicator('Opened in new tab');
+      hidePostingIndicator();
+    }
+  }
+
+  function goToAuthorProfile() {
+    const tweet = getFocusedTweet();
+    if (!tweet) return;
+    
+    // Save the current tweet URL so we can restore focus when going back
+    const currentTweetLink = tweet.querySelector('a[href*="/status/"] time')?.closest('a');
+    if (currentTweetLink?.href) {
+      state.lastFocusedTweetUrl = currentTweetLink.href;
     }
     
-    // Priority 4: Author profile
+    // Find the author's profile link
     const profileLink = tweet.querySelector('[data-testid="User-Name"] a[href^="/"]');
     if (profileLink) {
       profileLink.click();
@@ -1131,8 +1699,10 @@ function handleBookmarksAction() {
             <div class="betterui-help-row"><kbd>l</kbd> <span>Like tweet</span></div>
             <div class="betterui-help-row"><kbd>g</kbd> <span>Scroll to top</span></div>
             <div class="betterui-help-row"><kbd>G</kbd> <span>Scroll to bottom</span></div>
-            <div class="betterui-help-row"><kbd>Enter</kbd> <span>Open tweet / Follow on profile</span></div>
-            <div class="betterui-help-row"><kbd>Esc</kbd> <span>Clear focus / Close dialogs</span></div>
+            <div class="betterui-help-row"><kbd>Enter</kbd> <span>View tweet (navigates away)</span></div>
+            <div class="betterui-help-row"><kbd>Shift</kbd>+<kbd>Enter</kbd> <span>Open in new tab (preserves timeline)</span></div>
+            <div class="betterui-help-row"><kbd>Tab</kbd> <span>Go to author's profile</span></div>
+            <div class="betterui-help-row"><kbd>Esc</kbd> <span>Home (refresh)</span></div>
           </div>
           <div class="betterui-help-section">
             <div class="betterui-help-title">Tweet Actions</div>
@@ -1141,11 +1711,18 @@ function handleBookmarksAction() {
             <div class="betterui-help-row"><kbd>b</kbd> <span>Bookmark</span></div>
             <div class="betterui-help-row"><kbd>s</kbd> <span>Share (copy link)</span></div>
             <div class="betterui-help-row"><kbd>m</kbd> <span>Mute / unmute video</span></div>
+            <div class="betterui-help-row"><kbd>i</kbd> <span>Open image/media</span></div>
             <div class="betterui-help-row"><kbd>x</kbd> <span>Not interested</span></div>
           </div>
           <div class="betterui-help-section">
+            <div class="betterui-help-title">Image Viewer</div>
+            <div class="betterui-help-row"><kbd>h</kbd> <span>Previous image</span></div>
+            <div class="betterui-help-row"><kbd>l</kbd> <span>Next image</span></div>
+            <div class="betterui-help-row"><kbd>Esc</kbd> <span>Close viewer</span></div>
+          </div>
+          <div class="betterui-help-section">
             <div class="betterui-help-title">Profile Page</div>
-            <div class="betterui-help-row"><kbd>Enter</kbd> <span>Follow / Unfollow</span></div>
+            <div class="betterui-help-row"><kbd>Enter</kbd> <span>Follow/Unfollow (when no tweet focused)</span></div>
             <div class="betterui-help-row"><kbd>1</kbd> <span>Posts tab</span></div>
             <div class="betterui-help-row"><kbd>2</kbd> <span>Replies tab</span></div>
             <div class="betterui-help-row"><kbd>3</kbd> <span>Media tab</span></div>
@@ -1158,9 +1735,8 @@ function handleBookmarksAction() {
             <div class="betterui-help-row"><kbd>Space</kbd> <kbd>p</kbd> <span>My profile</span></div>
             <div class="betterui-help-row"><kbd>Space</kbd> <kbd>a</kbd> <span>Bookmarks page</span></div>
             <div class="betterui-help-row"><kbd>Space</kbd> <kbd>o</kbd> <span>Open all bookmarks in tabs</span></div>
-            <div class="betterui-help-row"><kbd>Space</kbd> <kbd>h</kbd> <span>Home</span></div>
+            <div class="betterui-help-row"><kbd>Space</kbd> <kbd>r</kbd> <span>Refresh / Go home</span></div>
             <div class="betterui-help-row"><kbd>Space</kbd> <kbd>n</kbd> <span>Notifications</span></div>
-            <div class="betterui-help-row"><kbd>Space</kbd> <kbd>r</kbd> <span>Refresh feed</span></div>
             <div class="betterui-help-row"><kbd>Space</kbd> <kbd>?</kbd> <span>Show help</span></div>
           </div>
         </div>
@@ -1226,12 +1802,6 @@ function handleBookmarksAction() {
   }
   
   function autoFocusTweet() {
-    // Skip auto-focus if navigating back from a status page
-    if (state.navigatedFromStatusPage) {
-      state.navigatedFromStatusPage = false;
-      return;
-    }
-    
     if (!shouldAutoFocus()) return;
     
     // Wait for the tweet to load and focus it
@@ -1269,7 +1839,8 @@ function handleBookmarksAction() {
   // ==========================================
   
   function init() {
-    document.addEventListener('keydown', handleKeyDown);
+    // Capture phase so we beat Twitter/React key handlers (prevents Enter from falling through to profile navigation)
+    window.addEventListener('keydown', handleKeyDown, true);
     
     // Track current URL for back navigation detection
     state.lastUrl = window.location.href;
@@ -1283,7 +1854,12 @@ function handleBookmarksAction() {
       const wasOnStatusPage = /\/status\/\d+/.test(state.lastUrl);
       const isNowOnStatusPage = /\/status\/\d+/.test(window.location.pathname);
       
-      // If we were on status page and now we're not, skip auto-focus
+      // When navigating TO a status page, save the status URL for later
+      if (!wasOnStatusPage && isNowOnStatusPage) {
+        state.lastFocusedTweetUrl = window.location.href;
+      }
+      
+      // If we were on status page and now we're not, try to restore focus
       if (wasOnStatusPage && !isNowOnStatusPage) {
         state.navigatedFromStatusPage = true;
       }
@@ -1295,8 +1871,31 @@ function handleBookmarksAction() {
       
       state.lastUrl = window.location.href;
       clearFocus();
-      // Re-check for auto-focus on navigation
-      setTimeout(autoFocusTweet, 300);
+      
+      // If coming back from a status page, restore focus to the tweet we came from
+      if (state.navigatedFromStatusPage && state.lastFocusedTweetUrl) {
+        // Try multiple times as tweets may need to load
+        let attempts = 0;
+        const maxAttempts = 20;
+        const tryRestore = () => {
+          attempts++;
+          if (restoreFocusToLastTweet()) {
+            state.navigatedFromStatusPage = false;
+            return;
+          }
+          if (attempts < maxAttempts) {
+            setTimeout(tryRestore, 150);
+          } else {
+            // Give up and fall back to auto-focus
+            state.navigatedFromStatusPage = false;
+            autoFocusTweet();
+          }
+        };
+        setTimeout(tryRestore, 100);
+      } else {
+        // Re-check for auto-focus on navigation
+        setTimeout(autoFocusTweet, 300);
+      }
     });
     
     const observer = new MutationObserver(() => {
@@ -1308,6 +1907,9 @@ function handleBookmarksAction() {
     
     // Check for pending tweet to post (from compose dialog)
     setTimeout(checkPendingTweet, 500);
+
+    // Check for pending scroll restoration (from back navigation)
+    setTimeout(checkPendingScrollRestore, 100);
     
     // Initialize cursor hiding
     initCursorHiding();
@@ -1320,7 +1922,12 @@ function handleBookmarksAction() {
       if (window.location.href !== state.lastUrl) {
         const wasOnStatusPage = /\/status\/\d+/.test(state.lastUrl);
         const isNowOnStatusPage = /\/status\/\d+/.test(window.location.pathname);
-        const wasOnProfilePage = isOnProfilePage();
+        
+        // When navigating TO a status page, save the status URL for later
+        // This handles both keyboard and click navigation
+        if (!wasOnStatusPage && isNowOnStatusPage) {
+          state.lastFocusedTweetUrl = window.location.href;
+        }
         
         // Track if navigating away from status page (likely going back)
         if (wasOnStatusPage && !isNowOnStatusPage) {
@@ -1335,7 +1942,30 @@ function handleBookmarksAction() {
         }
         
         clearFocus();
-        setTimeout(autoFocusTweet, 300);
+        
+        // If coming back from a status page, restore focus to the tweet we came from
+        if (state.navigatedFromStatusPage && state.lastFocusedTweetUrl) {
+          // Try multiple times as tweets may need to load
+          let attempts = 0;
+          const maxAttempts = 20;
+          const tryRestore = () => {
+            attempts++;
+            if (restoreFocusToLastTweet()) {
+              state.navigatedFromStatusPage = false;
+              return;
+            }
+            if (attempts < maxAttempts) {
+              setTimeout(tryRestore, 150);
+            } else {
+              // Give up and fall back to auto-focus
+              state.navigatedFromStatusPage = false;
+              autoFocusTweet();
+            }
+          };
+          setTimeout(tryRestore, 100);
+        } else {
+          setTimeout(autoFocusTweet, 300);
+        }
       }
     });
     urlObserver.observe(document.body, { childList: true, subtree: true });

@@ -66,20 +66,20 @@ aside[aria-label="Trending"],
 }
 
 /* Hide in-feed "Who to follow" suggestions */
-[data-testid="cellInnerDiv"]:has([data-testid="UserCell"]):not(:has(article[data-testid="tweet"])),
-[data-testid="cellInnerDiv"]:has(h2:is(:lang(en))[role="heading"]),
-[data-testid="cellInnerDiv"]:has(span:is(:lang(en))):not(:has(article)):not(:has([data-testid="tweetText"])) {
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] [data-testid="cellInnerDiv"]:has([data-testid="UserCell"]):not(:has(article[data-testid="tweet"])),
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] [data-testid="cellInnerDiv"]:has(h2:is(:lang(en))[role="heading"]),
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] [data-testid="cellInnerDiv"]:has(span:is(:lang(en))):not(:has(article)):not(:has([data-testid="tweetText"])) {
   display: none !important;
 }
 
 /* Hide "Who to follow" heading and its container in timeline */
-[data-testid="primaryColumn"] section [role="heading"]:has(span),
-[data-testid="cellInnerDiv"]:has(> div > div > [role="heading"]) {
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] section [role="heading"]:has(span),
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] [data-testid="cellInnerDiv"]:has(> div > div > [role="heading"]) {
   display: none !important;
 }
 
 /* Hide UserCell rows that appear in timeline (follow suggestions) */
-[data-testid="primaryColumn"] [data-testid="UserCell"]:not([aria-label*="Profile"]) {
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] [data-testid="UserCell"]:not([aria-label*="Profile"]) {
   display: none !important;
 }
 
@@ -145,14 +145,14 @@ a[href="/messages"]:not(#layers a):not([data-testid="AppTabBar_DirectMessage_Lin
 }
 
 /* Hide compose box at top of feed */
-[data-testid="primaryColumn"] > div > div:nth-child(2) [data-testid="tweetTextarea_0"],
-[data-testid="primaryColumn"] > div > div:nth-child(2) [data-testid="tweetTextarea_0_label"],
-[data-testid="primaryColumn"] [data-testid="tweetButtonInline"] {
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] > div > div:nth-child(2) [data-testid="tweetTextarea_0"],
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] > div > div:nth-child(2) [data-testid="tweetTextarea_0_label"],
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] [data-testid="tweetButtonInline"] {
   display: none !important;
 }
 
 /* Hide the entire compose section at top */
-div[data-testid="primaryColumn"] > div > div > div:has([data-testid="tweetTextarea_0"]) {
+main[role="main"]:not(#layers main[role="main"]) div[data-testid="primaryColumn"] > div > div > div:has([data-testid="tweetTextarea_0"]) {
   display: none !important;
 }
 
@@ -161,7 +161,7 @@ div[data-testid="primaryColumn"] > div > div > div:has([data-testid="tweetTextar
    ======================================== */
 
 /* Force the entire main area to be full width and centered */
-main[role="main"] {
+main[role="main"]:not(#layers main[role="main"]) {
   width: 100% !important;
   max-width: 100% !important;
   margin: 0 auto !important;
@@ -170,22 +170,22 @@ main[role="main"] {
 }
 
 /* Override Twitter's layout wrappers */
-main[role="main"] > div {
+main[role="main"]:not(#layers main[role="main"]) > div {
   width: 100% !important;
   max-width: 100% !important;
   display: flex !important;
   justify-content: center !important;
 }
 
-main[role="main"] > div > div {
+main[role="main"]:not(#layers main[role="main"]) > div > div {
   width: 100% !important;
   max-width: 100% !important;
   display: flex !important;
   justify-content: center !important;
 }
 
-/* The primary column - perfectly centered */
-[data-testid="primaryColumn"] {
+/* The primary column - perfectly centered (but NOT in lightbox/layers) */
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] {
   width: 666px !important;
   max-width: 666px !important;
   min-width: 666px !important;
@@ -195,16 +195,24 @@ main[role="main"] > div > div {
   flex-shrink: 0 !important;
 }
 
+/* Reset primaryColumn in lightbox - let Twitter handle it */
+#layers [data-testid="primaryColumn"] {
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  border: none !important;
+}
+
 
 /* ========================================
    ONE DARK THEME COLORS
    ======================================== */
 
 /* Background colors */
-[data-testid="primaryColumn"],
-[data-testid="cellInnerDiv"],
-article[data-testid="tweet"],
-div[data-testid="tweetDetail"] {
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"],
+[data-testid="cellInnerDiv"]:not(#layers *),
+article[data-testid="tweet"]:not(#layers *),
+div[data-testid="tweetDetail"]:not(#layers *) {
   background-color: var(--bg-primary) !important;
 }
 
@@ -253,35 +261,24 @@ a[href^="/"] {
 
 
 /* Hide tab navigation in primary column (Posts/Replies/Media tabs) */
-/* But preserve any tablist inside modals, video players, or layers */
-[data-testid="primaryColumn"] > div > div > div > [role="tablist"],
-[data-testid="primaryColumn"] > div > div > [role="tablist"] {
+/* Timeline only (never touch #layers/lightbox) */
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] > div > div > div > [role="tablist"],
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] > div > div > [role="tablist"] {
   display: none !important;
 }
 
-/* Ensure video player controls and modal tablists are NEVER hidden */
-[data-testid="videoPlayer"] [role="tablist"],
-[data-testid="videoComponent"] [role="tablist"],
-[aria-modal="true"] [role="tablist"],
-#layers [role="tablist"],
-video + [role="tablist"],
-[data-testid="swipe-to-dismiss"] [role="tablist"] {
-  display: block !important;
-  visibility: visible !important;
-}
-
 /* Hide the "Home" title header */
-[data-testid="titleContainer"] {
+main[role="main"]:not(#layers main[role="main"]) [data-testid="titleContainer"] {
   display: none !important;
 }
 
 /* Hide entire top sticky bar universally in primary column */
-[data-testid="primaryColumn"] > div > div:first-child {
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] > div > div:first-child {
   display: none !important;
 }
 
 /* Remove top padding that was for the header */
-[data-testid="primaryColumn"] > div > div:nth-child(2) {
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] > div > div:nth-child(2) {
   padding-top: 0 !important;
 }
 
@@ -371,13 +368,13 @@ video + [role="tablist"],
 }
 
 /* Compose modal backdrop */
-[aria-labelledby="modal-header"] > div:first-child {
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) > div:first-child {
   background-color: rgba(0, 0, 0, 0.7) !important;
 }
 
 /* Compose modal container */
-[aria-labelledby="modal-header"] [data-testid="toolBar"],
-[aria-labelledby="modal-header"] > div > div > div {
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) [data-testid="toolBar"],
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) > div > div > div {
   background-color: var(--bg-secondary) !important;
 }
 
@@ -391,9 +388,33 @@ video + [role="tablist"],
    MEDIA & CARDS
    ======================================== */
 
-/* Image cards */
-[data-testid="tweetPhoto"] {
+/* Image cards - only in feed/timeline, NOT in lightbox */
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] [data-testid="tweetPhoto"] {
   border-radius: 8px !important;
+  overflow: visible !important;
+}
+
+/* Ensure tweet images maintain aspect ratio and fit properly - feed only */
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] article[data-testid="tweet"] [data-testid="tweetPhoto"] img {
+  width: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+  object-fit: contain !important;
+  border-radius: 8px !important;
+}
+
+/* Tweet media container - allow full display - feed only */
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] article[data-testid="tweet"] [aria-label*="Image"],
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] article[data-testid="tweet"] div:has(> [data-testid="tweetPhoto"]) {
+  width: 100% !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+/* Fix for multi-image grids - feed only */
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] article[data-testid="tweet"] [data-testid="tweetPhoto"] > div {
+  max-height: none !important;
+  overflow: visible !important;
 }
 
 /* Link cards */
@@ -485,8 +506,8 @@ article[data-testid="tweet"] *:has(video) {
 }
 
 /* Profile timeline specific - ensure video containers have proper display */
-[data-testid="primaryColumn"] article [data-testid="videoPlayer"],
-[data-testid="primaryColumn"] article video {
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] article [data-testid="videoPlayer"],
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] article video {
   display: block !important;
   visibility: visible !important;
   opacity: 1 !important;
@@ -520,10 +541,33 @@ article[data-testid="tweet"] *:has(video) {
    VIM FOCUS INDICATOR
    ======================================== */
 
+/* Enable transitions on all tweets for smooth focus changes */
+article[data-testid="tweet"] {
+  transition: outline 0.2s ease-out, 
+              background-color 0.2s ease-out,
+              outline-offset 0.15s ease-out !important;
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+}
+
 .betterui-focused {
   outline: 2px solid var(--focus-ring) !important;
   outline-offset: -2px;
   background-color: var(--bg-tertiary) !important;
+}
+
+/* Focus ring for profile Media grid items (thumbnails) */
+.betterui-media-focused {
+  outline: 2px solid var(--focus-ring) !important;
+  outline-offset: -2px;
+  border-radius: 10px !important;
+  position: relative !important;
+  z-index: 5 !important;
+}
+
+.betterui-media-focused img,
+.betterui-media-focused video {
+  border-radius: 10px !important;
 }
 
 /* ========================================
@@ -619,8 +663,8 @@ article[data-testid="tweet"] *:has(video) {
   display: none !important;
 }
 
-/* Ensure non-ad cells with videos are ALWAYS visible */
-[data-testid="cellInnerDiv"]:not([data-betterui-ad="true"]) {
+/* Ensure non-ad cells with videos are ALWAYS visible (outside lightbox) */
+[data-testid="cellInnerDiv"]:not([data-betterui-ad="true"]):not(#layers *) {
   display: block !important;
 }
 
@@ -776,8 +820,8 @@ article[data-testid="tweet"] {
    TWEET DETAIL PAGE - CLEAN VIEW
    ======================================== */
 
-/* Tweet detail page width - only for the main column, not media overlay */
-body.betterui-tweet-page [data-testid="primaryColumn"]:not([aria-label*="Photo"]):not([aria-label*="Video"]) {
+/* Tweet detail page width - only for the main column, NOT in lightbox */
+body.betterui-tweet-page main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] {
   width: 600px !important;
   max-width: 600px !important;
   min-width: 600px !important;
@@ -787,125 +831,114 @@ body.betterui-tweet-page [data-testid="primaryColumn"]:not([aria-label*="Photo"]
    MEDIA LIGHTBOX / OVERLAY VIEW
    ======================================== */
 
-/* Ensure media lightbox views are fully visible */
-#layers [aria-label="Image"],
-#layers [aria-label="Photo"],
-#layers video,
-#layers [data-testid="videoPlayer"],
-#layers [data-testid="videoComponent"],
-#layers img:not([alt=""]) {
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-}
+/* 
+ * CRITICAL: Do NOT apply any layout styles to #layers.
+ * The image lightbox uses [data-testid="swipe-to-dismiss"].
+ * Let Twitter handle the entire lightbox layout natively.
+ */
 
-/* Video modal structure - preserve the entire modal hierarchy */
-#layers [data-testid="swipe-to-dismiss"] {
-  display: flex !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-}
-
-/* Ensure all children in video modal are visible (but don't override display type) */
-#layers [data-testid="swipe-to-dismiss"] * {
-  visibility: visible !important;
-  opacity: 1 !important;
-}
-
-/* Video elements specifically should be block */
-#layers [data-testid="swipe-to-dismiss"] video,
-#layers [data-testid="swipe-to-dismiss"] [data-testid="videoPlayer"],
-#layers [data-testid="swipe-to-dismiss"] [data-testid="videoComponent"] {
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-}
-
-/* Ensure the video container in the modal maintains flex layout */
-#layers [data-testid="swipe-to-dismiss"] > div,
-#layers [data-testid="swipe-to-dismiss"] > div > div,
-#layers [data-testid="swipe-to-dismiss"] > div > div > div {
-  display: flex !important;
-  visibility: visible !important;
-}
-
-/* Video controls in modals should always be visible */
-#layers [role="slider"],
-#layers [aria-label*="video"],
-#layers [aria-label*="Video"],
-#layers [data-testid="app-bar-back"],
-#layers button[aria-label*="Play"],
-#layers button[aria-label*="Pause"],
-#layers button[aria-label*="Mute"],
-#layers button[aria-label*="unmute"],
-#layers button[aria-label*="fullscreen"],
-#layers [aria-label*="progress"],
-#layers [role="progressbar"] {
-  display: flex !important;
-  visibility: visible !important;
-  opacity: 1 !important;
+/* Only override styles for the side panel tweet content, not the main image */
+#layers [data-testid="swipe-to-dismiss"] article[data-testid="tweet"] [data-testid="tweetPhoto"] img {
+  max-height: 50vh !important;
+  object-fit: contain !important;
 }
 
 /* Profile media tab - ensure proper grid layout */
-body.betterui-media-page [data-testid="primaryColumn"] {
+body.betterui-media-page main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] {
   width: 100% !important;
   max-width: 100% !important;
   min-width: unset !important;
 }
 
 /* Restore media grid header visibility on media pages */
-body.betterui-media-page [data-testid="primaryColumn"] > div > div:first-child {
+body.betterui-media-page main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] > div > div:first-child {
   display: block !important;
 }
 
 /* Ensure media grid items display properly */
-body.betterui-media-page [data-testid="cellInnerDiv"] {
+body.betterui-media-page main[role="main"]:not(#layers main[role="main"]) [data-testid="cellInnerDiv"] {
   display: block !important;
 }
 
+/* ========================================
+   TWEET IMAGES IN FEED - PROPER DISPLAY
+   ======================================== */
+
+/* Ensure tweet cell containers don't clip media */
+[data-testid="cellInnerDiv"] article[data-testid="tweet"] {
+  overflow: visible !important;
+}
+
+/* Media container within tweets */
+article[data-testid="tweet"] > div > div > div:has([data-testid="tweetPhoto"]) {
+  overflow: visible !important;
+  max-height: none !important;
+}
+
+/* Quote tweets with images */
+article[data-testid="tweet"] [data-testid="quoteTweet"] [data-testid="tweetPhoto"] {
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+article[data-testid="tweet"] [data-testid="quoteTweet"] [data-testid="tweetPhoto"] img {
+  width: 100% !important;
+  height: auto !important;
+  max-height: 300px !important;
+  object-fit: contain !important;
+}
+
 /* Media grid container should use proper grid layout */
-body.betterui-media-page section[role="region"] > div > div {
+body.betterui-media-page main[role="main"]:not(#layers main[role="main"]) section[role="region"] > div > div {
   display: grid !important;
   grid-template-columns: repeat(3, 1fr) !important;
   gap: 4px !important;
 }
 
 /* Ensure media tab video thumbnails are visible */
-[data-testid="primaryColumn"] [href*="/video/"],
-[data-testid="primaryColumn"] [href*="/photo/"],
-[data-testid="primaryColumn"] a[href*="/status/"][href*="/video"],
-[data-testid="UserMedia"] video,
-[data-testid="UserMedia"] [data-testid="videoPlayer"],
-[data-testid="UserMedia"] [data-testid="tweetPhoto"],
-section[aria-labelledby*="media"] video,
-section[aria-labelledby*="media"] [data-testid="videoPlayer"] {
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] [href*="/video/"],
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] [href*="/photo/"],
+main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] a[href*="/status/"][href*="/video"],
+main[role="main"]:not(#layers main[role="main"]) [data-testid="UserMedia"] video,
+main[role="main"]:not(#layers main[role="main"]) [data-testid="UserMedia"] [data-testid="videoPlayer"],
+main[role="main"]:not(#layers main[role="main"]) [data-testid="UserMedia"] [data-testid="tweetPhoto"],
+main[role="main"]:not(#layers main[role="main"]) section[aria-labelledby*="media"] video,
+main[role="main"]:not(#layers main[role="main"]) section[aria-labelledby*="media"] [data-testid="videoPlayer"] {
   display: block !important;
   visibility: visible !important;
   opacity: 1 !important;
 }
 
 /* Video thumbnails in grids */
-[data-testid="cellInnerDiv"] video,
-[data-testid="cellInnerDiv"] [data-testid="videoPlayer"],
-[data-testid="cellInnerDiv"] [data-testid="videoComponent"] {
+main[role="main"]:not(#layers main[role="main"]) [data-testid="cellInnerDiv"] video,
+main[role="main"]:not(#layers main[role="main"]) [data-testid="cellInnerDiv"] [data-testid="videoPlayer"],
+main[role="main"]:not(#layers main[role="main"]) [data-testid="cellInnerDiv"] [data-testid="videoComponent"] {
   display: block !important;
   visibility: visible !important;
   opacity: 1 !important;
 }
 
-/* Constrain images */
-body.betterui-tweet-page [data-testid="tweetPhoto"] {
-  max-height: 400px !important;
+/* Tweet detail page - images should display properly with reasonable max */
+body.betterui-tweet-page main[role="main"]:not(#layers main[role="main"]) [data-testid="tweetPhoto"] {
+  max-height: none !important;
+  width: 100% !important;
 }
 
-body.betterui-tweet-page [data-testid="card.wrapper"] {
-  max-height: 400px !important;
-  overflow: hidden !important;
+body.betterui-tweet-page main[role="main"]:not(#layers main[role="main"]) [data-testid="tweetPhoto"] img {
+  max-height: 70vh !important;
+  width: 100% !important;
+  height: auto !important;
+  object-fit: contain !important;
+}
+
+body.betterui-tweet-page main[role="main"]:not(#layers main[role="main"]) [data-testid="card.wrapper"] {
+  max-height: none !important;
+  overflow: visible !important;
 }
 
 /* Video constraints - remove restrictive sizing to allow natural dimensions */
-body.betterui-tweet-page article [data-testid="videoPlayer"],
-body.betterui-tweet-page article video {
+body.betterui-tweet-page main[role="main"]:not(#layers main[role="main"]) article [data-testid="videoPlayer"],
+body.betterui-tweet-page main[role="main"]:not(#layers main[role="main"]) article video {
   max-height: none !important;
   height: auto !important;
   width: 100% !important;
@@ -920,7 +953,7 @@ video {
 }
 
 /* Clean padding */
-body.betterui-tweet-page article[data-testid="tweet"] {
+body.betterui-tweet-page main[role="main"]:not(#layers main[role="main"]) article[data-testid="tweet"] {
   padding: 16px !important;
 }
 
@@ -930,8 +963,8 @@ body.betterui-tweet-page article[data-testid="tweet"] {
 }
 
 /* Hide Follow button in tweet detail */
-body.betterui-tweet-page [data-testid$="-follow"],
-body.betterui-tweet-page [data-testid$="-unfollow"] {
+body.betterui-tweet-page main[role="main"]:not(#layers main[role="main"]) [data-testid$="-follow"],
+body.betterui-tweet-page main[role="main"]:not(#layers main[role="main"]) [data-testid$="-unfollow"] {
   display: none !important;
 }
 
@@ -1033,11 +1066,11 @@ body.betterui-tweet-page [data-testid$="-unfollow"] {
 }
 
 /* Hide native timeline on bookmarks when grid is active */
-body.betterui-bookmarks-page.betterui-grid-active [data-testid="primaryColumn"] section {
+body.betterui-bookmarks-page.betterui-grid-active main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] section {
   display: none !important;
 }
 
-body.betterui-bookmarks-page.betterui-grid-active [data-testid="primaryColumn"] {
+body.betterui-bookmarks-page.betterui-grid-active main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] {
   width: 100% !important;
   max-width: 100% !important;
   min-width: unset !important;
@@ -1183,21 +1216,22 @@ body.betterui-bookmarks-page.betterui-grid-active [data-testid="primaryColumn"] 
 
 /* ========================================
    REPLY BOX MODAL - Minimal & Clean
+   (Only target compose modal, NOT image lightbox)
    ======================================== */
 
-/* Dark backdrop */
-#layers > div:first-child > div {
+/* Dark backdrop - only for compose modal, not lightbox */
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) {
   background: rgba(0, 0, 0, 0.85) !important;
 }
 
-/* Reset ALL nested container backgrounds */
-#layers [aria-labelledby="modal-header"] div {
+/* Reset nested container backgrounds - compose modal only */
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) div {
   background-color: transparent !important;
   background: transparent !important;
 }
 
 /* The main modal container - apply our styling */
-#layers [aria-labelledby="modal-header"] > div:last-child > div > div {
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) > div:last-child > div > div {
   background: var(--bg-secondary) !important;
   border: 2px solid var(--accent-purple) !important;
   border-radius: 12px !important;
@@ -1206,86 +1240,86 @@ body.betterui-bookmarks-page.betterui-grid-active [data-testid="primaryColumn"] 
   overflow: hidden !important;
 }
 
-/* ===== HIDE EVERYTHING WE DON'T NEED ===== */
+/* ===== HIDE ELEMENTS IN COMPOSE MODAL ONLY ===== */
 
-/* Hide close button */
-#layers [aria-label="Close"] {
+/* Hide close button - compose modal only */
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) [aria-label="Close"] {
   display: none !important;
 }
 
-/* Hide Drafts */
-#layers [href="/compose/post/drafts"],
-#layers span:has(> a[href*="drafts"]) {
+/* Hide Drafts - compose modal only */
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) [href="/compose/post/drafts"],
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) span:has(> a[href*="drafts"]) {
   display: none !important;
 }
 
 /* Hide the entire top row (Close + Drafts) */
-#layers [aria-labelledby="modal-header"] > div:last-child > div > div > div:first-child {
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) > div:last-child > div > div > div:first-child {
   display: none !important;
 }
 
-/* Hide "Replying to @username" */
-#layers span:has(> a[role="link"][href^="/"]) {
+/* Hide "Replying to @username" - compose modal only */
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) span:has(> a[role="link"][href^="/"]) {
   display: none !important;
 }
 
-/* Hide all avatars */
-#layers [aria-labelledby="modal-header"] img[src*="profile"] {
+/* Hide avatars in compose modal */
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) img[src*="profile"] {
   display: none !important;
 }
 
-#layers [aria-labelledby="modal-header"] [style*="width: 40px"],
-#layers [aria-labelledby="modal-header"] [style*="width: 32px"] {
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) [style*="width: 40px"],
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) [style*="width: 32px"] {
   width: 0 !important;
   min-width: 0 !important;
   overflow: hidden !important;
 }
 
 /* Hide thread connector */
-#layers [aria-labelledby="modal-header"] [style*="border-left"] {
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) [style*="border-left"] {
   border-left: none !important;
 }
 
-/* ===== TEXTAREA STYLING ===== */
+/* ===== TEXTAREA STYLING (compose modal only) ===== */
 
-#layers [data-testid="tweetTextarea_0RichTextInputContainer"] {
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) [data-testid="tweetTextarea_0RichTextInputContainer"] {
   background: transparent !important;
   border: none !important;
   padding: 20px !important;
   min-height: 120px !important;
 }
 
-#layers [data-testid="tweetTextarea_0"],
-#layers [aria-labelledby="modal-header"] [contenteditable="true"] {
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) [data-testid="tweetTextarea_0"],
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) [contenteditable="true"] {
   color: var(--text-primary) !important;
   font-size: 16px !important;
   line-height: 1.5 !important;
 }
 
-#layers .public-DraftEditorPlaceholder-root {
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) .public-DraftEditorPlaceholder-root {
   color: var(--text-muted) !important;
 }
 
-/* ===== TOOLBAR - HIDE ICONS, KEEP BUTTON ===== */
+/* ===== TOOLBAR - HIDE ICONS, KEEP BUTTON (compose modal only) ===== */
 
-/* Hide all toolbar buttons except Reply */
-#layers [data-testid="toolBar"] button:not([data-testid="tweetButton"]) {
+/* Hide all toolbar buttons except Reply - compose modal only */
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) [data-testid="toolBar"] button:not([data-testid="tweetButton"]) {
   display: none !important;
 }
 
-/* Hide progress indicator */
-#layers [role="progressbar"],
-#layers [data-testid="toolBar"] [role="progressbar"] {
+/* Hide progress indicator - compose modal only */
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) [role="progressbar"],
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) [data-testid="toolBar"] [role="progressbar"] {
   display: none !important;
 }
 
-/* Hide the icon container div */
-#layers [data-testid="toolBar"] > div > div:first-child {
+/* Hide the icon container div - compose modal only */
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) [data-testid="toolBar"] > div > div:first-child {
   display: none !important;
 }
 
-/* Style the toolbar */
-#layers [data-testid="toolBar"] {
+/* Style the toolbar - compose modal only */
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) [data-testid="toolBar"] {
   background: var(--bg-secondary) !important;
   border-top: 1px solid var(--border-color) !important;
   padding: 12px 20px !important;
@@ -1293,9 +1327,9 @@ body.betterui-bookmarks-page.betterui-grid-active [data-testid="primaryColumn"] 
   justify-content: flex-end !important;
 }
 
-/* ===== REPLY BUTTON ===== */
+/* ===== REPLY BUTTON (compose modal only) ===== */
 
-#layers [data-testid="tweetButton"] {
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) [data-testid="tweetButton"] {
   background: var(--accent-purple) !important;
   color: white !important;
   border: none !important;
@@ -1307,19 +1341,19 @@ body.betterui-bookmarks-page.betterui-grid-active [data-testid="primaryColumn"] 
   opacity: 1 !important;
 }
 
-#layers [data-testid="tweetButton"] span {
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) [data-testid="tweetButton"] span {
   color: white !important;
 }
 
-#layers [data-testid="tweetButton"]:hover {
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) [data-testid="tweetButton"]:hover {
   background: #b06cc8 !important;
 }
 
-#layers [data-testid="tweetButton"][aria-disabled="true"] {
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) [data-testid="tweetButton"][aria-disabled="true"] {
   background: var(--bg-hover) !important;
 }
 
-#layers [data-testid="tweetButton"][aria-disabled="true"] span {
+#layers [aria-labelledby="modal-header"]:has([data-testid="tweetTextarea_0"]) [data-testid="tweetButton"][aria-disabled="true"] span {
   color: var(--text-muted) !important;
 }
 
@@ -1583,12 +1617,11 @@ body.betterui-bookmarks-page.betterui-grid-active [data-testid="primaryColumn"] 
 }
 
 /* Hide native timeline on notifications when list is active */
-body.betterui-notifications-page.betterui-notifications-active [data-testid="primaryColumn"] section {
+body.betterui-notifications-page.betterui-notifications-active main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] section {
   display: none !important;
 }
 
 /* Show header on profile pages */
-body.betterui-profile-page [data-testid="primaryColumn"] > div > div:first-child {
+body.betterui-profile-page main[role="main"]:not(#layers main[role="main"]) [data-testid="primaryColumn"] > div > div:first-child {
   display: block !important;
 }
-
