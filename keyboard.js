@@ -944,14 +944,8 @@ const BetterUIKeyboard = (function() {
   }
   
   function openCompose() {
-    if (!state.composeOverlay) createComposeOverlay();
-    state.composeOverlay.classList.add('active');
-    const textarea = state.composeOverlay.querySelector('#betterui-compose-input');
-    textarea.value = '';
-    const charCount = state.composeOverlay.querySelector('.betterui-char-count');
-    charCount.textContent = '0/280';
-    charCount.classList.remove('over');
-    setTimeout(() => textarea.focus(), 10);
+    // Directly open Twitter's native compose modal
+    openTwitterCompose();
   }
   
   function closeCompose() {
@@ -960,90 +954,44 @@ const BetterUIKeyboard = (function() {
     }
   }
   
+  // Open Twitter's native compose modal
+  function openTwitterCompose() {
+    // Try clicking Twitter's compose button (works even if hidden by CSS)
+    const composeButtonSelectors = [
+      '[data-testid="SideNav_NewTweet_Button"]',
+      'a[href="/compose/post"]',
+      'a[href="/compose/tweet"]',
+      '[aria-label="Post"]',
+      '[aria-label="Tweet"]'
+    ];
+
+    let composeBtn = null;
+    for (const selector of composeButtonSelectors) {
+      composeBtn = document.querySelector(selector);
+      if (composeBtn) break;
+    }
+
+    if (composeBtn) {
+      composeBtn.click();
+      // Check if it worked
+      setTimeout(() => {
+        if (!document.querySelector('[data-testid="tweetTextarea_0"]')) {
+          // Button click didn't work, navigate
+          window.location.href = '/compose/post';
+        }
+      }, 150);
+    } else {
+      // No button found, navigate directly
+      window.location.href = '/compose/post';
+    }
+  }
+
+  // Keep submitTweet for if the custom modal is ever used
   function submitTweet(text) {
     if (!text.trim() || text.length > 280) return;
-    
-    const tweetText = text.trim();
     closeCompose();
-    
-    // Store the text to inject after navigation
-    sessionStorage.setItem('betterui_pending_tweet', tweetText);
-    sessionStorage.setItem('betterui_return_url', window.location.href);
-    
-    // Navigate to compose page
-    window.location.href = 'https://x.com/compose/post';
-  }
-  
-  // Check if we need to inject a pending tweet (called on page load)
-  function checkPendingTweet() {
-    const pendingTweet = sessionStorage.getItem('betterui_pending_tweet');
-    if (!pendingTweet) return;
-    
-    // Clear it so we don't keep trying
-    sessionStorage.removeItem('betterui_pending_tweet');
-    const returnUrl = sessionStorage.getItem('betterui_return_url');
-    sessionStorage.removeItem('betterui_return_url');
-    
-    // Wait for compose box to be ready
-    const checkInterval = setInterval(() => {
-      const composeBox = document.querySelector('[data-testid="tweetTextarea_0"]');
-      
-      if (composeBox) {
-        clearInterval(checkInterval);
-        
-        // Focus the compose box
-        composeBox.focus();
-        
-        // Small delay then insert text
-        setTimeout(() => {
-          // Try to find the actual editable element
-          const editableDiv = composeBox.querySelector('[contenteditable="true"]') || 
-                              composeBox.closest('[contenteditable="true"]') ||
-                              document.querySelector('[data-testid="tweetTextarea_0"] [contenteditable="true"]') ||
-                              composeBox;
-          
-          if (editableDiv) {
-            editableDiv.focus();
-            
-            // Insert text using execCommand
-            document.execCommand('insertText', false, pendingTweet);
-            
-            // Also try setting textContent as fallback
-            if (!editableDiv.textContent) {
-              editableDiv.textContent = pendingTweet;
-              editableDiv.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-          }
-          
-          // Show helper message
-          showPostingIndicator('Press Cmd+Enter or click Post');
-          
-          // Auto-click post after a delay if button is enabled
-          setTimeout(() => {
-            const postBtn = document.querySelector('[data-testid="tweetButton"]');
-            if (postBtn && !postBtn.disabled && postBtn.getAttribute('aria-disabled') !== 'true') {
-              postBtn.click();
-              showPostingIndicator('Posted!');
-              
-              // Go back after posting
-              setTimeout(() => {
-                hidePostingIndicator();
-                if (returnUrl) {
-                  window.location.href = returnUrl;
-                } else {
-                  window.history.back();
-                }
-              }, 800);
-            } else {
-              hidePostingIndicator();
-            }
-          }, 800);
-        }, 300);
-      }
-    }, 100);
-    
-    // Timeout
-    setTimeout(() => clearInterval(checkInterval), 5000);
+    // Just open Twitter's compose - user can type fresh
+    openTwitterCompose();
   }
   
   function showPostingIndicator(message) {
@@ -1905,8 +1853,6 @@ function handleBookmarksAction() {
     });
     observer.observe(document.body, { childList: true, subtree: true });
     
-    // Check for pending tweet to post (from compose dialog)
-    setTimeout(checkPendingTweet, 500);
 
     // Check for pending scroll restoration (from back navigation)
     setTimeout(checkPendingScrollRestore, 100);
