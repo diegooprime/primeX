@@ -528,46 +528,50 @@
   
   function buildNotificationsList() {
     if (notificationsListBuilt) return;
-    
+
     // Wait for notifications to load
     const notifications = document.querySelectorAll('[data-testid="cellInnerDiv"]');
     if (notifications.length === 0) {
       setTimeout(buildNotificationsList, 500);
       return;
     }
-    
+
     // Create list container
     const list = document.createElement('div');
     list.id = 'betterui-notifications-list';
-    
-    // Add header
-    const header = document.createElement('div');
-    header.className = 'betterui-notif-header';
-    header.innerHTML = `
-      <span class="col-account">Account</span>
-      <span class="col-action">Action</span>
-      <span class="col-link">Content</span>
-      <span class="col-date">Date</span>
-    `;
-    list.appendChild(header);
-    
-    // Parse notifications
+
+    // Parse notifications first to count them
+    const validNotifications = [];
     notifications.forEach(cell => {
       const data = extractNotificationData(cell);
       if (data && !processedNotifications.has(data.id)) {
-        const row = createNotificationRow(data);
-        list.appendChild(row);
+        validNotifications.push(data);
         processedNotifications.add(data.id);
       }
     });
-    
+
+    // Add header with count
+    const header = document.createElement('div');
+    header.className = 'betterui-notif-header';
+    header.innerHTML = `
+      <h2>Notifications</h2>
+      <span class="notif-count">${validNotifications.length} items</span>
+    `;
+    list.appendChild(header);
+
+    // Add notification rows
+    validNotifications.forEach(data => {
+      const row = createNotificationRow(data);
+      list.appendChild(row);
+    });
+
     // Insert list into page
     const primaryColumn = document.querySelector('[data-testid="primaryColumn"]');
     if (primaryColumn) {
       primaryColumn.appendChild(list);
       document.body.classList.add('betterui-notifications-active');
       notificationsListBuilt = true;
-      
+
       // Setup observer for new notifications
       setupNotificationsObserver();
     }
@@ -577,95 +581,251 @@
     try {
       // Get notification article or container
       const article = cell.querySelector('article') || cell;
-      
+
       // Get the main text content
       const textContent = article.textContent || '';
       if (!textContent.trim()) return null;
-      
-      // Try to find account info
-      const userLink = cell.querySelector('a[href^="/"][role="link"]');
-      const username = userLink?.textContent || 'Unknown';
-      const userHref = userLink?.getAttribute('href') || '';
-      
-      // Get avatar
-      const avatar = cell.querySelector('img[src*="profile"]')?.src || 
-                     cell.querySelector('img[src*="pbs.twimg"]')?.src || '';
-      
+
+      // Skip separator divs and non-notification items
+      if (cell.querySelector('[role="separator"]')) return null;
+      if (cell.offsetHeight < 30) return null;
+
+      // Try multiple strategies to find username
+      let username = '';
+      let userHref = '';
+
+      // Strategy 1: Look for user link with @ handle
+      const allLinks = cell.querySelectorAll('a[href^="/"]');
+      for (const link of allLinks) {
+        const href = link.getAttribute('href') || '';
+        // Skip status links, hashtags, search links
+        if (href.includes('/status/') || href.includes('/search') ||
+            href.includes('/hashtag') || href.includes('/i/')) continue;
+        // Must be a simple username path like /username
+        if (href.match(/^\/[a-zA-Z0-9_]+$/)) {
+          username = link.textContent?.trim() || '';
+          userHref = href;
+          if (username && !username.includes(' ')) break;
+        }
+      }
+
+      // Strategy 2: Look for spans with @ prefix
+      if (!username) {
+        const spans = cell.querySelectorAll('span');
+        for (const span of spans) {
+          const text = span.textContent?.trim() || '';
+          if (text.startsWith('@') && text.length > 1 && !text.includes(' ')) {
+            username = text;
+            userHref = '/' + text.slice(1);
+            break;
+          }
+        }
+      }
+
+      // Strategy 3: Extract from notification text patterns
+      if (!username) {
+        const match = textContent.match(/@([a-zA-Z0-9_]+)/);
+        if (match) {
+          username = '@' + match[1];
+          userHref = '/' + match[1];
+        }
+      }
+
+      // Fallback if no username found
+      if (!username) {
+        // Look for any text before action keywords
+        const actionMatch = textContent.match(/^(.+?)\s+(liked|retweeted|followed|replied|quoted|mentioned)/i);
+        if (actionMatch) {
+          username = actionMatch[1].trim().split('\n')[0].slice(0, 30);
+        } else {
+          username = 'Someone';
+        }
+      }
+
+      // Get avatar - try multiple image sources
+      let avatar = '';
+      const imgs = cell.querySelectorAll('img');
+      for (const img of imgs) {
+        const src = img.src || '';
+        if (src.includes('profile_images') || src.includes('pbs.twimg.com/profile')) {
+          avatar = src;
+          break;
+        }
+      }
+      // Also try background images in divs
+      if (!avatar) {
+        const avatarDiv = cell.querySelector('[style*="profile_images"]');
+        if (avatarDiv) {
+          const style = avatarDiv.getAttribute('style') || '';
+          const urlMatch = style.match(/url\(['"]?([^'"]+)['"]?\)/);
+          if (urlMatch) avatar = urlMatch[1];
+        }
+      }
+
       // Determine action type from text
       let action = 'interacted';
       const lowerText = textContent.toLowerCase();
-      if (lowerText.includes('liked')) action = 'liked';
+      if (lowerText.includes('liked your')) action = 'liked';
+      else if (lowerText.includes('liked a post')) action = 'liked';
       else if (lowerText.includes('retweeted')) action = 'retweeted';
       else if (lowerText.includes('replied')) action = 'replied';
-      else if (lowerText.includes('followed')) action = 'followed';
+      else if (lowerText.includes('followed you') || lowerText.includes('is now following')) action = 'followed';
       else if (lowerText.includes('mentioned')) action = 'mentioned';
       else if (lowerText.includes('quoted')) action = 'quoted';
       else if (lowerText.includes('posted')) action = 'posted';
-      
+      else if (lowerText.includes('liked')) action = 'liked';
+
       // Get link to content
       const contentLink = cell.querySelector('a[href*="/status/"]');
       const contentHref = contentLink?.getAttribute('href') || '';
-      const contentPreview = cell.querySelector('[data-testid="tweetText"]')?.textContent || 
-                             contentLink?.textContent || '';
-      
-      // Get time if available
-      const time = cell.querySelector('time')?.textContent || 
-                   cell.querySelector('time')?.getAttribute('datetime') || '';
-      
+
+      // Get content preview text
+      let contentPreview = '';
+      const tweetText = cell.querySelector('[data-testid="tweetText"]');
+      if (tweetText) {
+        contentPreview = tweetText.textContent?.trim() || '';
+      } else if (contentLink) {
+        // Try to get text near the status link
+        const linkText = contentLink.textContent?.trim() || '';
+        if (linkText && !linkText.match(/^\d+:\d+/)) { // Not just a timestamp
+          contentPreview = linkText;
+        }
+      }
+
+      // Get time - try multiple formats
+      let time = '';
+      const timeEl = cell.querySelector('time');
+      if (timeEl) {
+        time = timeEl.textContent?.trim() || '';
+        if (!time) {
+          const datetime = timeEl.getAttribute('datetime');
+          if (datetime) {
+            const date = new Date(datetime);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            const diffHours = Math.floor(diffMs / 3600000);
+            const diffDays = Math.floor(diffMs / 86400000);
+
+            if (diffMins < 60) time = `${diffMins}m`;
+            else if (diffHours < 24) time = `${diffHours}h`;
+            else if (diffDays < 7) time = `${diffDays}d`;
+            else time = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          }
+        }
+      }
+
       // Generate unique ID
-      const id = `${username}-${action}-${contentHref || Date.now()}`;
-      
+      const id = `${username}-${action}-${contentHref || textContent.slice(0, 50)}-${time}`;
+
       return {
         id,
-        username,
+        username: username.slice(0, 50),
         userHref,
         avatar,
         action,
         contentHref,
-        contentPreview: contentPreview.slice(0, 100),
+        contentPreview: contentPreview.slice(0, 150),
         time
       };
     } catch (e) {
+      console.error('Notification extraction error:', e);
       return null;
     }
   }
   
   function createNotificationRow(data) {
     const row = document.createElement('div');
-    row.className = 'betterui-notif-row';
+    row.className = `betterui-notif-row type-${data.action}`;
     row.dataset.id = data.id;
-    
-    // Action icons
-    const actionIcons = {
-      'liked': '❤️',
-      'retweeted': '🔄',
-      'replied': '💬',
-      'followed': '👤',
+
+    // Very short action labels
+    const actionLabels = {
+      'liked': 'LIKE',
+      'retweeted': 'RT',
+      'replied': 'REPLY',
+      'followed': 'FOLLOW',
       'mentioned': '@',
-      'quoted': '💬',
-      'posted': '📝',
-      'interacted': '🔔'
+      'quoted': 'QUOTE',
+      'posted': 'POST',
+      'interacted': 'NEW'
     };
-    
+
+    // Avatar HTML - use default icon if no avatar
+    const avatarHtml = data.avatar
+      ? `<img class="notif-avatar" src="${data.avatar}" alt="" onerror="this.outerHTML='<div class=\\'notif-avatar x-default\\'>X</div>'">`
+      : `<div class="notif-avatar x-default">X</div>`;
+
+    // Build the username display
+    const displayName = data.username;
+
+    // Content - only create link if we have a real href
+    let contentHtml;
+    if (data.contentHref && data.contentPreview) {
+      contentHtml = `<a href="https://x.com${data.contentHref}" class="notif-content">${escapeHtml(data.contentPreview)}</a>`;
+    } else if (data.contentPreview) {
+      contentHtml = `<span class="notif-content">${escapeHtml(data.contentPreview)}</span>`;
+    } else {
+      contentHtml = `<span class="notif-content empty"></span>`;
+    }
+
+    // Format time to be always short
+    const shortTime = formatShortTime(data.time);
+
+    // Username - only create link if we have a real href
+    const usernameHtml = data.userHref
+      ? `<a href="https://x.com${data.userHref}" class="notif-username">${escapeHtml(displayName)}</a>`
+      : `<span class="notif-username">${escapeHtml(displayName)}</span>`;
+
+    // Flat grid structure: avatar | username | action | content | time
     row.innerHTML = `
-      <div class="col-account">
-        ${data.avatar ? `<img class="notif-avatar" src="${data.avatar}" alt="">` : ''}
-        <a href="https://x.com${data.userHref}" class="notif-username">${data.username}</a>
-      </div>
-      <div class="col-action">
-        <span class="action-icon">${actionIcons[data.action] || '🔔'}</span>
-        <span class="action-text">${data.action}</span>
-      </div>
-      <div class="col-link">
-        ${data.contentHref ? 
-          `<a href="https://x.com${data.contentHref}" class="notif-content">${data.contentPreview || 'View post'}</a>` : 
-          `<span class="notif-content-empty">—</span>`
-        }
-      </div>
-      <div class="col-date">${data.time}</div>
+      ${avatarHtml}
+      ${usernameHtml}
+      <span class="action-text">${actionLabels[data.action] || 'NEW'}</span>
+      ${contentHtml}
+      <span class="notif-time">${shortTime}</span>
     `;
-    
+
+    // Make the whole row clickable if there's content
+    if (data.contentHref) {
+      row.addEventListener('click', (e) => {
+        if (e.target.tagName !== 'A') {
+          window.location.href = `https://x.com${data.contentHref}`;
+        }
+      });
+    }
+
     return row;
+  }
+
+  // Format time to always be short (1m, 2h, 3d, Jan 8)
+  function formatShortTime(timeStr) {
+    if (!timeStr) return '';
+
+    // Already short format
+    if (/^\d+[mhd]$/.test(timeStr)) return timeStr;
+
+    // Try to parse full dates like "Dec 28, 2025"
+    const dateMatch = timeStr.match(/([A-Z][a-z]{2})\s+(\d{1,2}),?\s*(\d{4})?/i);
+    if (dateMatch) {
+      const [, month, day, year] = dateMatch;
+      const currentYear = new Date().getFullYear();
+      // If same year or no year, just show "Jan 8"
+      if (!year || parseInt(year) === currentYear) {
+        return `${month} ${day}`;
+      }
+      return `${month} ${day}`;
+    }
+
+    // Return as-is if can't parse
+    return timeStr.length > 8 ? timeStr.slice(0, 6) : timeStr;
+  }
+
+  // Helper to escape HTML
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
   
   function setupNotificationsObserver() {
@@ -693,16 +853,33 @@
   function appendNewNotifications() {
     const list = document.getElementById('betterui-notifications-list');
     if (!list) return;
-    
+
+    let addedCount = 0;
     const cells = document.querySelectorAll('[data-testid="cellInnerDiv"]');
     cells.forEach(cell => {
       const data = extractNotificationData(cell);
       if (data && !processedNotifications.has(data.id)) {
         processedNotifications.add(data.id);
         const row = createNotificationRow(data);
-        list.appendChild(row);
+        // Insert after header
+        const header = list.querySelector('.betterui-notif-header');
+        if (header && header.nextSibling) {
+          list.insertBefore(row, header.nextSibling);
+        } else {
+          list.appendChild(row);
+        }
+        addedCount++;
       }
     });
+
+    // Update count in header
+    if (addedCount > 0) {
+      const countEl = list.querySelector('.notif-count');
+      if (countEl) {
+        const total = list.querySelectorAll('.betterui-notif-row').length;
+        countEl.textContent = `${total} items`;
+      }
+    }
   }
   
   function setupPageDetection() {

@@ -11,6 +11,7 @@ const BetterUIKeyboard = (function() {
     leaderTimer: null,
     focusedTweet: null,
     focusedMedia: null,
+    focusedNotification: null,
     leaderIndicator: null,
     searchOverlay: null,
     composeOverlay: null,
@@ -18,6 +19,8 @@ const BetterUIKeyboard = (function() {
     gridFocusIndex: -1,
     // Profile media grid state
     mediaFocusIndex: -1,
+    // Notifications list state
+    notificationFocusIndex: -1,
     // Cursor hiding
     cursorTimer: null,
     // Track navigation for back-focus prevention
@@ -43,8 +46,8 @@ const BetterUIKeyboard = (function() {
   const bindings = {
     // Direct bindings (no leader) - vim style hjkl
     direct: {
-      'j': () => isOnBookmarksGrid() ? navigateGrid(GRID_COLUMNS) : (isOnProfileMediaGrid() ? navigateMediaGrid(1) : navigateTweets(1)),
-      'k': () => isOnBookmarksGrid() ? navigateGrid(-GRID_COLUMNS) : (isOnProfileMediaGrid() ? navigateMediaGrid(-1) : navigateTweets(-1)),
+      'j': () => isOnBookmarksGrid() ? navigateGrid(GRID_COLUMNS) : (isOnProfileMediaGrid() ? navigateMediaGrid(1) : (isOnNotificationsList() ? navigateNotifications(1) : navigateTweets(1))),
+      'k': () => isOnBookmarksGrid() ? navigateGrid(-GRID_COLUMNS) : (isOnProfileMediaGrid() ? navigateMediaGrid(-1) : (isOnNotificationsList() ? navigateNotifications(-1) : navigateTweets(-1))),
       'h': () => isOnBookmarksGrid() ? navigateGrid(-1) : goBack(),
       'H': () => isOnBookmarksGrid() ? navigateGrid(-1) : goBack(),
       'l': () => isOnBookmarksGrid() ? navigateGrid(1) : likeFocusedTweet(),
@@ -461,6 +464,8 @@ const BetterUIKeyboard = (function() {
     clearMediaFocus();
     // Also clear grid focus
     clearGridFocus();
+    // Also clear notification focus
+    clearNotificationFocus();
   }
   
   function clearGridFocus() {
@@ -649,10 +654,117 @@ const BetterUIKeyboard = (function() {
     clickTarget.click();
     return true;
   }
-  
+
+  // ==========================================
+  // Notifications List Navigation
+  // ==========================================
+
+  function isOnNotificationsList() {
+    const path = window.location.pathname;
+    return (path.startsWith('/notifications') || path === '/i/notifications') &&
+           document.getElementById('betterui-notifications-list');
+  }
+
+  function getNotificationRows() {
+    const list = document.getElementById('betterui-notifications-list');
+    if (!list) return [];
+    return Array.from(list.querySelectorAll('.betterui-notif-row'));
+  }
+
+  function findFirstVisibleNotificationIndex(rows) {
+    const viewportTop = 50;
+    for (let i = 0; i < rows.length; i++) {
+      const rect = rows[i].getBoundingClientRect();
+      if (rect.bottom > viewportTop && rect.top < window.innerHeight) {
+        return i;
+      }
+    }
+    return 0;
+  }
+
+  function clearNotificationFocus() {
+    state.notificationFocusIndex = -1;
+    if (state.focusedNotification && document.contains(state.focusedNotification)) {
+      state.focusedNotification.classList.remove('betterui-notif-focused');
+    }
+    state.focusedNotification = null;
+
+    document.querySelectorAll('.betterui-notif-focused').forEach(el => {
+      el.classList.remove('betterui-notif-focused');
+    });
+  }
+
+  function focusNotificationRow(el, index) {
+    if (!el) return false;
+    clearNotificationFocus();
+
+    state.focusedNotification = el;
+    state.notificationFocusIndex = index;
+    el.classList.add('betterui-notif-focused');
+
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return true;
+  }
+
+  function navigateNotifications(direction) {
+    const rows = getNotificationRows();
+    if (rows.length === 0) return;
+
+    let currentIndex = -1;
+
+    if (state.focusedNotification && document.contains(state.focusedNotification)) {
+      const idx = rows.indexOf(state.focusedNotification);
+      if (idx !== -1) currentIndex = idx;
+    }
+
+    if (currentIndex === -1) {
+      currentIndex = findFirstVisibleNotificationIndex(rows);
+    }
+
+    let newIndex = currentIndex + direction;
+    newIndex = Math.max(0, Math.min(newIndex, rows.length - 1));
+    focusNotificationRow(rows[newIndex], newIndex);
+  }
+
+  function openFocusedNotification() {
+    if (!state.focusedNotification || !document.contains(state.focusedNotification)) return false;
+
+    // Find all links in the notification
+    const contentLink = state.focusedNotification.querySelector('a.notif-content');
+    const userLink = state.focusedNotification.querySelector('a.notif-username');
+
+    // Check content link first - must have valid href (not # or empty)
+    if (contentLink && contentLink.href && !contentLink.href.endsWith('#') && contentLink.href !== window.location.href) {
+      window.open(contentLink.href, '_blank');
+      return true;
+    }
+
+    // Fall back to user profile link
+    if (userLink && userLink.href && !userLink.href.endsWith('#') && userLink.href !== window.location.href) {
+      window.open(userLink.href, '_blank');
+      return true;
+    }
+
+    // No valid link found
+    return false;
+  }
+
   function handleEnterKey() {
     if (isOnBookmarksGrid()) {
       openFocusedBookmark();
+      return;
+    }
+
+    // Notifications list: Enter opens focused notification in new tab
+    if (isOnNotificationsList()) {
+      if (openFocusedNotification()) return;
+
+      // If no focus, focus the first visible one
+      const rows = getNotificationRows();
+      if (rows.length > 0) {
+        const idx = findFirstVisibleNotificationIndex(rows);
+        focusNotificationRow(rows[idx], idx);
+      }
       return;
     }
 
