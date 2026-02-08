@@ -716,15 +716,21 @@ article[data-testid="tweet"] span:not([data-testid]):not([class]) {
 }
 
 /* Force tweet text to show fully - remove all clipping */
-[data-testid="tweetText"],
-[data-testid="tweetText"] > span,
-[data-testid="tweetText"] > div {
+[data-testid="tweetText"] {
   max-height: none !important;
   -webkit-line-clamp: unset !important;
   -webkit-box-orient: unset !important;
   overflow: visible !important;
   display: block !important;
   text-overflow: unset !important;
+}
+
+/* Children must stay inline to preserve natural text flow */
+[data-testid="tweetText"] > span,
+[data-testid="tweetText"] > div {
+  max-height: none !important;
+  overflow: visible !important;
+  display: inline !important;
 }
 
 /* Remove gradient fade that indicates truncation */
