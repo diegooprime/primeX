@@ -223,17 +223,19 @@ const BetterUIKeyboard = (function() {
   }
   
   function isTyping(element) {
+    // Guard: if target is not an Element (e.g. document), not typing
+    if (!element || !element.tagName) return false;
     const tagName = element.tagName.toLowerCase();
     const isEditable = element.isContentEditable;
     const isInput = tagName === 'input' || tagName === 'textarea';
-    const isTwitterCompose = element.closest('[data-testid="tweetTextarea_0"]');
+    const isTwitterCompose = element.closest?.('[data-testid="tweetTextarea_0"]');
     const isSearchInput = element.id === 'betterui-search-input';
     const isComposeInput = element.id === 'betterui-compose-input';
-    
+
     // Check if reply modal is open
     const replyModalOpen = document.querySelector('[aria-labelledby="modal-header"]') ||
                            document.querySelector('[data-testid="reply"]')?.closest('[role="dialog"]');
-    
+
     return isEditable || isInput || isTwitterCompose || isSearchInput || isComposeInput || replyModalOpen;
   }
   

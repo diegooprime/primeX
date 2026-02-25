@@ -379,14 +379,15 @@
     card.dataset.url = bookmark.url;
     card.dataset.index = index;
     
+    // SECURITY: escapeHtml on all user-derived data to prevent XSS
     card.innerHTML = `
       <div class="bookmark-header">
-        <img class="bookmark-avatar" src="${bookmark.avatar}" alt="">
-        <span class="bookmark-user">${bookmark.username}</span>
-        <span class="bookmark-time">${bookmark.time}</span>
+        <img class="bookmark-avatar" src="${escapeHtml(bookmark.avatar)}" alt="">
+        <span class="bookmark-user">${escapeHtml(bookmark.username)}</span>
+        <span class="bookmark-time">${escapeHtml(bookmark.time)}</span>
       </div>
-      <div class="bookmark-text">${bookmark.text}</div>
-      ${bookmark.hasMedia ? '<div class="bookmark-media">📷 has media</div>' : ''}
+      <div class="bookmark-text">${escapeHtml(bookmark.text)}</div>
+      ${bookmark.hasMedia ? '<div class="bookmark-media">has media</div>' : ''}
     `;
     
     card.addEventListener('click', () => {
@@ -752,8 +753,9 @@
     };
 
     // Avatar HTML - use default icon if no avatar
+    // TODO: SECURITY - replaced inline onerror handler with JS-based error handling below (CSP compliance)
     const avatarHtml = data.avatar
-      ? `<img class="notif-avatar" src="${data.avatar}" alt="" onerror="this.outerHTML='<div class=\\'notif-avatar x-default\\'>X</div>'">`
+      ? `<img class="notif-avatar" src="${escapeHtml(data.avatar)}" alt="">`
       : `<div class="notif-avatar x-default">X</div>`;
 
     // Build the username display
@@ -785,6 +787,17 @@
       ${contentHtml}
       <span class="notif-time">${shortTime}</span>
     `;
+
+    // Attach avatar error handler via JS instead of inline onerror (CSP-safe)
+    const avatarImg = row.querySelector('.notif-avatar');
+    if (avatarImg && avatarImg.tagName === 'IMG') {
+      avatarImg.addEventListener('error', function() {
+        const fallback = document.createElement('div');
+        fallback.className = 'notif-avatar x-default';
+        fallback.textContent = 'X';
+        this.replaceWith(fallback);
+      });
+    }
 
     // Make the whole row clickable if there's content
     if (data.contentHref) {

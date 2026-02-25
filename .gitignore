@@ -3,3 +3,10 @@
 
 # PNG images
 *.png
+
+# Dependencies
+node_modules/
+bun.lock
+
+# Coverage
+coverage/
